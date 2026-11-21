@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>梦幻圣诞夜 · 3D圣诞树与绚丽烟花</title>
+    <!-- 引入 Tailwind CSS 用于响应式毛玻璃控制面板布局 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入优雅的中英文字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            background: #030510;
+            font-family: 'Noto Serif SC', serif;
+            overscroll-behavior: none;
+        }
+        #sceneCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            touch-action: none; /* 防止移动端滑动时触发页面滚动 */
+        }
+        .font-festive {
+            font-family: 'Cinzel Decorative', 'Noto Serif SC', serif;
+        }
+        /* 精致毛玻璃效果 */
+        .glass-panel {
+            background: rgba(12, 19, 44, 0.55);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+        }
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.09);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .glass-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+            border-color: rgba(255, 225, 150, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(255, 210, 110, 0.22);
+        }
+        .glass-btn:active {
+            transform: scale(0.95);
+        }
+        /* 自定义动画 */
+        @keyframes floatGlow {
+            0%, 100% { text-shadow: 0 0 14px rgba(255, 215, 110, 0.6), 0 0 28px rgba(255, 160, 60, 0.3); }
+            50% { text-shadow: 0 0 22px rgba(255, 230, 150, 0.9), 0 0 40px rgba(255, 180, 80, 0.5); }
+        }
+        .title-glow {
+            animation: floatGlow 3.5s ease-in-out infinite;
+        }
+        /* 隐藏/显示UI的平滑过渡 */
+        .ui-transition {
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        .ui-hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(14px);
+        }
+    </style>
+</head>
+<body class="text-white antialiased">
+
+    <!-- 全屏交互主画布 -->
+    <canvas id="sceneCanvas"></canvas>
+
+    <!-- 顶部标题与右上角纯粹模式切换 -->
+    <header class="fixed top-0 left-0 right-0 z-10 flex items-start justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))] sm:p-6 pointer-events-none">
+        <div id="headerTitle" class="ui-transition">
+            <h1 class="font-festive text-xl sm:text-3xl font-bold tracking-wider text-amber-100 title-glow">
+                Merry Christmas
+            </h1>
+            <p class="text-xs sm:text-sm text-blue-200/80 mt-1 tracking-widest">
+                点击夜空燃放烟花 · 左右滑动旋转圣诞树
+            </p>
+        </div>
+
+        <!-- 右上角控制按钮组（始终可点击） -->
+        <div class="flex items-center gap-2 sm:gap-3 pointer-events-auto">
+            <!-- 音乐与音效开关 -->
+            <button id="audioToggleBtn" aria-label="切换音乐与音效"
+                class="glass-btn rounded-full px-3.5 py-2.5 sm:px-4 sm:py-2.5 flex items-center gap-2 text-xs sm:text-sm font-medium text-amber-100 cursor-pointer">
+                <span id="audioIcon" class="text-base">🔇</span>
+                <span id="audioText" class="hidden sm:inline">开启音乐</span>
+            </button>
+
+            <!-- 隐藏/显示面板按钮（纯粹观赏模式） -->
+            <button id="toggleUiBtn" aria-label="隐藏或显示界面"
+                class="glass-btn rounded-full p-2.5 sm:px-4 sm:py-2.5 flex items-center gap-1.5 text-xs sm:text-sm text-blue-100 cursor-pointer">
+                <svg id="eyeIcon" class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span id="toggleUiText" class="hidden sm:inline">纯净模式</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 底部毛玻璃控制栏 -->
+    <footer id="controlDock" class="fixed bottom-4 bottom-[max(1rem,env(safe-area-inset-bottom))] sm:bottom-6 left-1/2 -translate-x-1/2 z-10 w-[94%] max-w-xl ui-transition">
+        <div class="glass-panel rounded-2xl sm:rounded-3xl p-2.5 sm:p-3.5 flex items-center justify-around gap-2">
+            
+            <!-- 1. 盛大烟花按钮 -->
+            <button id="burstFireworksBtn"
+                class="glass-btn flex-1 rounded-xl sm:rounded-2xl py-2.5 px-2 sm:px-4 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-amber-200 font-semibold text-xs sm:text-sm cursor-pointer">
+                <span class="text-lg sm:text-xl">🎆</span>
+                <span>燃放烟花</span>
+            </button>
+
+            <!-- 2. 灯光主题切换按钮 -->
+            <button id="themeSwitchBtn"
+                class="glass-btn flex-1 rounded-xl sm:rounded-2xl py-2.5 px-2 sm:px-4 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-cyan-200 font-semibold text-xs sm:text-sm cursor-pointer">
+                <span class="text-lg sm:text-xl">🎄</span>
+                <span id="themeNameLabel">流金星尘</span>
+            </button>
+
+            <!-- 3. 放飞许愿灯按钮 -->
+            <button id="openWishBtn"
+                class="glass-btn flex-1 rounded-xl sm:rounded-2xl py-2.5 px-2 sm:px-4 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 text-rose-200 font-semibold text-xs sm:text-sm cursor-pointer">
+                <span class="text-lg sm:text-xl">🏮</span>
+                <span>放飞许愿灯</span>
+            </button>
+
+        </div>
+    </footer>
+
+    <!-- 许愿灯输入弹窗 -->
+    <div id="wishModal" class="fixed inset-0 z-20 hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 text-center relative border border-amber-300/30">
+            <h2 class="text-xl font-bold text-amber-200 mb-1">✨ 写下你的圣诞心愿</h2>
+            <p class="text-xs text-blue-200/80 mb-4">心愿将化作温暖的天灯，伴随烟花升入圣诞夜空</p>
+            
+            <input id="wishInput" type="text" maxlength="24" placeholder="例如：愿家人平安喜乐，万事胜意..."
+                class="w-full rounded-xl bg-white/10 border border-white/25 px-4 py-3 text-sm text-white placeholder-blue-200/50 focus:outline-none focus:border-amber-300 mb-3 text-center">
+            
+            <!-- 快捷心愿标签 -->
+            <div class="flex flex-wrap justify-center gap-1.5 mb-5">
+                <button type="button" class="quick-wish text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-amber-400/25 text-amber-100 border border-white/15 transition cursor-pointer">平安喜乐 ✨</button>
+                <button type="button" class="quick-wish text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-amber-400/25 text-amber-100 border border-white/15 transition cursor-pointer">暴富暴美 🎁</button>
+                <button type="button" class="quick-wish text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-amber-400/25 text-amber-100 border border-white/15 transition cursor-pointer">得偿所愿 🌟</button>
+                <button type="button" class="quick-wish text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-amber-400/25 text-amber-100 border border-white/15 transition cursor-pointer">圣诞快乐 🎄</button>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="cancelWishBtn"
+                    class="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm text-gray-200 transition cursor-pointer">
+                    取消
+                </button>
+                <button id="sendWishBtn"
+                    class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/30 transition cursor-pointer">
+                    放飞心愿 🏮
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 轻提示 Toast 消息框（替代 alert） -->
+    <div id="toastMsg" class="fixed top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none opacity-0 transition-opacity duration-300">
+        <div class="glass-panel px-4 py-2 rounded-full text-xs sm:text-sm text-amber-200 border border-amber-300/30 shadow-lg">
+            提示信息
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ============================================================================
+         * 1. Web Audio API 圣诞八音盒与烟花音效合成器（无需任何外部音频文件）
+         * ============================================================================
+         */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.isPlaying = false;
+                this.noteTimer = null;
+                this.step = 0;
+                // 《Jingle Bells》柔和八音盒旋律 (频率Hz, 拍数)
+                this.melody = [
+                    [659.25, 1], [659.25, 1], [659.25, 2],
+                    [659.25, 1], [659.25, 1], [659.25, 2],
+                    [659.25, 1], [783.99, 1], [523.25, 1.5], [587.33, 0.5], [659.25, 3], [0, 1],
+                    [698.46, 1], [698.46, 1], [698.46, 1.5], [698.46, 0.5],
+                    [698.46, 1], [659.25, 1], [659.25, 1], [659.25, 0.5], [659.25, 0.5],
+                    [659.25, 1], [587.33, 1], [587.33, 1], [659.25, 1], [587.33, 2], [783.99, 2], [0, 1]
+                ];
+            }
+
+            toggle() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+
+                this.isPlaying = !this.isPlaying;
+                if (this.isPlaying) {
+                    this.scheduleNextNote();
+                } else {
+                    clearTimeout(this.noteTimer);
+                }
+                return this.isPlaying;
+            }
+
+            playMusicBoxTone(freq, durationSec) {
+                if (!this.ctx || !this.isPlaying || freq <= 0) return;
+                const now = this.ctx.currentTime;
+
+                const osc1 = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(freq, now);
+
+                osc2.type = 'triangle';
+                osc2.frequency.setValueAtTime(freq * 2, now);
+
+                const osc2Gain = this.ctx.createGain();
+                osc2Gain.gain.setValueAtTime(0.08, now);
+
+                gain.gain.setValueAtTime(0.001, now);
+                gain.gain.exponentialRampToValueAtTime(0.085, now + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.0008, now + durationSec * 1.4);
+
+                osc1.connect(gain);
+                osc2.connect(osc2Gain);
+                osc2Gain.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc1.start(now);
+                osc2.start(now);
+                osc1.stop(now + durationSec * 1.5);
+                osc2.stop(now + durationSec * 1.5);
+            }
+
+            scheduleNextNote() {
+                if (!this.isPlaying) return;
+                const [freq, beats] = this.melody[this.step % this.melody.length];
+                const beatDuration = 0.36;
+                const duration = beats * beatDuration;
+
+                this.playMusicBoxTone(freq, duration);
+                this.step++;
+                this.noteTimer = setTimeout(() => this.scheduleNextNote(), duration * 1000);
+            }
+
+            playFireworkPop(intensity = 1) {
+                if (!this.ctx || !this.isPlaying) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const bufferSize = this.ctx.sampleRate * 0.45;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.09));
+                    }
+
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(380 * intensity, now);
+                    filter.frequency.exponentialRampToValueAtTime(90, now + 0.4);
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0.14 * intensity, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    noise.start(now);
+                } catch (e) {
+                    // 忽略音频上下文异常
+                }
+            }
+        }
+
+        const soundEngine = new SoundEngine();
+
+        /**
+         * ============================================================================
+         * 2. 四套虚幻光影圣诞树美学主题配置
+         * ============================================================================
+         */
+        const LIGHT_THEMES = [
+            {
+                name: '流金星尘',
+                fairyColors: ['#FFFDF5', '#FFE599', '#FFD166', '#FF9F1C'],
+                spiritHue: 42,
+                spiritAccentHue: 28,
+                ribbonColor: 'rgba(255, 220, 130, 0.22)',
+                ribbonEdge: 'rgba(255, 248, 210, 0.92)',
+                starColor: '#FFF3B0',
+                treeGlow: 'rgba(255, 195, 85, 0.34)',
+                auraInner: 'rgba(255, 215, 120, 0.26)',
+                auraOuter: 'rgba(255, 150, 50, 0)'
+            },
+            {
+                name: '幻境冰蓝',
+                fairyColors: ['#FFFFFF', '#E0FBFC', '#90E0EF', '#48CAE4'],
+                spiritHue: 196,
+                spiritAccentHue: 218,
+                ribbonColor: 'rgba(144, 224, 239, 0.24)',
+                ribbonEdge: 'rgba(235, 252, 255, 0.95)',
+                starColor: '#E0FBFC',
+                treeGlow: 'rgba(110, 215, 255, 0.36)',
+                auraInner: 'rgba(130, 225, 255, 0.28)',
+                auraOuter: 'rgba(60, 140, 255, 0)'
+            },
+            {
+                name: '极光翡翠',
+                fairyColors: ['#F0FFF4', '#B7E4C7', '#74C69D', '#52B788'],
+                spiritHue: 158,
+                spiritAccentHue: 185,
+                ribbonColor: 'rgba(149, 213, 178, 0.24)',
+                ribbonEdge: 'rgba(230, 255, 242, 0.92)',
+                starColor: '#D8F3DC',
+                treeGlow: 'rgba(95, 225, 175, 0.34)',
+                auraInner: 'rgba(115, 235, 185, 0.26)',
+                auraOuter: 'rgba(40, 180, 140, 0)'
+            },
+            {
+                name: '紫罗星云',
+                fairyColors: ['#FFF0F5', '#FFC8DD', '#E0AAFF', '#BDE0FE'],
+                spiritHue: 285,
+                spiritAccentHue: 325,
+                ribbonColor: 'rgba(224, 170, 255, 0.24)',
+                ribbonEdge: 'rgba(255, 235, 252, 0.94)',
+                starColor: '#FFE5EC',
+                treeGlow: 'rgba(205, 135, 255, 0.36)',
+                auraInner: 'rgba(215, 150, 255, 0.28)',
+                auraOuter: 'rgba(160, 80, 240, 0)'
+            }
+        ];
+
+        let currentThemeIdx = 0;
+
+        /**
+         * ============================================================================
+         * 3. 虚幻光影圣诞树与场景核心渲染引擎
+         * ============================================================================
+         */
+        const canvas = document.getElementById('sceneCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        // 交互旋转与物理阻尼变量
+        let rotationAngle = 0;
+        let angularVelocity = 0.005;
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let lastDragX = 0;
+        let dragMoved = false;
+
+        // 场景实体数组
+        let stars = [];
+        let snowflakes = [];
+        let treeElements = [];
+        let ribbonStrips = [];
+        let floatingWisps = [];
+        let fireworks = [];
+        let fireworkParticles = [];
+        let wishLanterns = [];
+        let skyFlashAlpha = 0;
+        let skyFlashHue = 45;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            initStars();
+            initSnowflakes();
+            buildEtherealChristmasTree();
+        }
+
+        function initStars() {
+            stars = [];
+            const count = Math.floor((width * height) / 6800);
+            for (let i = 0; i < count; i++) {
+                stars.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height * 0.82,
+                    radius: Math.random() * 1.6 + 0.3,
+                    phase: Math.random() * Math.PI * 2,
+                    speed: 0.015 + Math.random() * 0.03
+                });
+            }
+        }
+
+        function initSnowflakes() {
+            snowflakes = [];
+            const count = width < 640 ? 85 : 145;
+            for (let i = 0; i < count; i++) {
+                const depth = Math.random(); // 0: 远景细雪, 1: 近景大雪花
+                snowflakes.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: 0.9 + depth * 2.4,
+                    speedY: 0.45 + depth * 1.15,
+                    driftAmp: 0.25 + depth * 0.85,
+                    driftPhase: Math.random() * Math.PI * 2,
+                    opacity: 0.28 + depth * 0.62
+                });
+            }
+        }
+
+        /**
+         * 构建虚幻全息光影圣诞树（Ethereal Holographic Particle & Light-Ribbon Tree）：
+         * 由半透明能量光波丝带、星尘粒子云、上升灵光微粒、全息光环底座与虚幻八芒星构成
+         */
+        function buildEtherealChristmasTree() {
+            treeElements = [];
+            ribbonStrips = [];
+            floatingWisps = [];
+
+            const isMobile = width < 640;
+            const treeHeight = Math.min(height * (isMobile ? 0.56 : 0.64), isMobile ? 430 : 560);
+            const maxRadius = Math.min(width * (isMobile ? 0.36 : 0.23), treeHeight * 0.45);
+            const tierCount = 7;
+
+            // 计算任意高度比例 t (0=树顶, 1=树底) 处的流线型光波轮廓半径
+            const getEtherealRadius = (t) => {
+                const wave = Math.sin(t * Math.PI * tierCount) * 0.065 * Math.pow(t, 0.65);
+                const cone = Math.pow(t, 0.88) * 0.94;
+                return maxRadius * Math.max(0.015, cone + wave);
+            };
+
+            // 1. 虚幻光束树芯与悬浮能量微粒（代替实体木质树干）
+            const coreBeamCount = isMobile ? 65 : 95;
+            for (let i = 0; i < coreBeamCount; i++) {
+                const t = Math.random();
+                const angle = Math.random() * Math.PI * 2;
+                const r = maxRadius * 0.14 * Math.pow(t, 0.6) * Math.random();
+                treeElements.push({
+                    type: 'coreDust',
+                    y: -treeHeight * 0.48 + t * treeHeight * 1.04,
+                    radius: r,
+                    angle,
+                    phase: Math.random() * Math.PI * 2,
+                    speed: 1.5 + Math.random() * 2.5,
+                    size: (isMobile ? 1.8 : 2.3) * (0.6 + Math.random() * 0.9)
+                });
+            }
+
+            // 2. 虚幻星尘粒子树冠（半透明流光光点构成轻盈蓬松的轮廓）
+            const stardustCount = isMobile ? 620 : 960;
+            for (let i = 0; i < stardustCount; i++) {
+                const t = Math.pow(Math.random(), 0.82); // 底部略密、顶部轻盈通透
+                const surfaceR = getEtherealRadius(t);
+                // 80% 集中在表面光层勾勒轮廓，20% 散布于内部营造体积光雾
+                const shellFactor = Math.random() < 0.82
+                    ? (0.86 + Math.random() * 0.16)
+                    : (0.25 + Math.random() * 0.62);
+                const r = surfaceR * shellFactor;
+                const angle = Math.random() * Math.PI * 2;
+
+                treeElements.push({
+                    type: 'stardust',
+                    y: -treeHeight * 0.5 + t * treeHeight,
+                    radius: r,
+                    angle,
+                    t,
+                    shellFactor,
+                    phase: Math.random() * Math.PI * 2,
+                    speed: 1.4 + Math.random() * 2.6,
+                    size: (isMobile ? 1.6 : 2.1) * (0.65 + Math.random() * 0.95)
+                });
+            }
+
+            // 3. 三重螺旋全息流光丝带（主光带 + 副光带，构成虚幻树身骨架）
+            const ribbonConfigs = [
+                { turns: 4.2, phase: 0, widthScale: 1.15, radiusScale: 1.01 },
+                { turns: 4.2, phase: Math.PI * 0.66, widthScale: 0.75, radiusScale: 0.98 },
+                { turns: 4.2, phase: Math.PI * 1.33, widthScale: 0.75, radiusScale: 0.98 }
+            ];
+            const ribbonSteps = isMobile ? 160 : 220;
+
+            ribbonConfigs.forEach((cfg) => {
+                const strip = [];
+                for (let i = 0; i <= ribbonSteps; i++) {
+                    const t = 0.02 + (i / ribbonSteps) * 0.96;
+                    const r = getEtherealRadius(t) * cfg.radiusScale;
+                    const angle = t * Math.PI * 2 * cfg.turns + cfg.phase;
+                    const y = -treeHeight * 0.5 + t * treeHeight;
+                    strip.push({ t, y, radius: r, angle, widthScale: cfg.widthScale });
+                }
+                ribbonStrips.push(strip);
+            });
+
+            // 4. 梦幻散景光斑（Bokeh Orbs，柔和光晕代替实心圣诞球）
+            const bokehCount = isMobile ? 95 : 145;
+            for (let i = 0; i < bokehCount; i++) {
+                const t = 0.06 + Math.pow(Math.random(), 0.9) * 0.91;
+                const r = getEtherealRadius(t) * (0.85 + Math.random() * 0.22);
+                const angle = i * 2.39996 + (Math.random() - 0.5) * 0.3;
+                treeElements.push({
+                    type: 'bokehOrb',
+                    y: -treeHeight * 0.5 + t * treeHeight,
+                    radius: r,
+                    angle,
+                    colorIdx: i % 4,
+                    twinklePhase: Math.random() * Math.PI * 2,
+                    twinkleSpeed: 1.8 + Math.random() * 2.4,
+                    size: (isMobile ? 4.2 : 5.6) * (0.7 + Math.random() * 0.75)
+                });
+            }
+
+            // 5. 围绕树身缓缓盘旋上升的虚幻萤火光灵（Floating Wisps）
+            const wispCount = isMobile ? 28 : 42;
+            for (let i = 0; i < wispCount; i++) {
+                floatingWisps.push({
+                    t: Math.random(),
+                    angle: Math.random() * Math.PI * 2,
+                    radialOffset: 1.06 + Math.random() * 0.32,
+                    riseSpeed: 0.0012 + Math.random() * 0.0016,
+                    orbitSpeed: 0.008 + Math.random() * 0.012,
+                    phase: Math.random() * Math.PI * 2,
+                    size: (isMobile ? 2.0 : 2.6) * (0.7 + Math.random() * 0.8)
+                });
+            }
+
+            buildEtherealChristmasTree.meta = {
+                treeHeight,
+                maxRadius,
+                getEtherealRadius
+            };
+        }
+
+        /**
+         * ============================================================================
+         * 4. 物理烟花与许愿天灯系统
+         * ============================================================================
+         */
+        class FireworkRocket {
+            constructor(startX, targetX, targetY) {
+                this.x = startX;
+                this.y = height;
+                this.targetX = targetX;
+                this.targetY = targetY;
+
+                const dx = targetX - startX;
+                const dy = targetY - height;
+                const distance = Math.hypot(dx, dy);
+                const speed = Math.max(9.5, distance * 0.022);
+                const angle = Math.atan2(dy, dx);
+
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.hue = Math.floor(Math.random() * 360);
+                this.trail = [];
+                this.exploded = false;
+            }
+
+            update() {
+                this.trail.push({ x: this.x, y: this.y });
+                if (this.trail.length > 8) this.trail.shift();
+
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.06; // 轻微重力阻滞
+
+                const distToTarget = Math.hypot(this.targetX - this.x, this.targetY - this.y);
+                if (distToTarget < 18 || this.vy >= -0.8) {
+                    this.exploded = true;
+                    explodeFirework(this.x, this.y, this.hue);
+                }
+            }
+
+            draw() {
+                ctx.save();
+                for (let i = 0; i < this.trail.length; i++) {
+                    const pt = this.trail[i];
+                    const ratio = (i + 1) / this.trail.length;
+                    ctx.fillStyle = `hsla(${this.hue}, 100%, 75%, ${ratio * 0.75})`;
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, ratio * 2.4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        function explodeFirework(x, y, baseHue) {
+            soundEngine.playFireworkPop(0.85 + Math.random() * 0.4);
+
+            // 触发夜空与圣诞树边缘的瞬时环境反光
+            skyFlashAlpha = 0.16;
+            skyFlashHue = baseHue;
+
+            const isMobile = width < 640;
+            const count = isMobile ? 65 : 105;
+            const pattern = Math.random(); // 随机花型：菊花球、双环、星芒闪烁
+
+            for (let i = 0; i < count; i++) {
+                const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.15;
+                let speed = (Math.random() * 3.8 + 1.4) * (isMobile ? 0.82 : 1.05);
+
+                if (pattern > 0.72) {
+                    // 双层礼花效果
+                    speed = (i % 2 === 0 ? 4.3 : 2.2) * (isMobile ? 0.82 : 1);
+                }
+
+                const hue = (baseHue + (Math.random() - 0.5) * 42 + 360) % 360;
+                fireworkParticles.push({
+                    x,
+                    y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    hue,
+                    lightness: 62 + Math.random() * 24,
+                    alpha: 1,
+                    decay: 0.013 + Math.random() * 0.012,
+                    gravity: 0.048,
+                    drag: 0.968,
+                    sparkle: Math.random() > 0.35,
+                    history: []
+                });
+            }
+        }
+
+        function launchFireworkTo(targetX, targetY) {
+            const startX = width * 0.5 + (Math.random() - 0.5) * width * 0.45;
+            fireworks.push(new FireworkRocket(startX, targetX, targetY));
+        }
+
+        function launchGrandFinale() {
+            const bursts = width < 640 ? 6 : 9;
+            for (let i = 0; i < bursts; i++) {
+                setTimeout(() => {
+                    const tx = width * (0.14 + Math.random() * 0.72);
+                    const ty = height * (0.12 + Math.random() * 0.36);
+                    launchFireworkTo(tx, ty);
+                }, i * 190);
+            }
+        }
+
+        // 许愿天灯类
+        class WishLantern {
+            constructor(text) {
+                this.text = text;
+                const isMobile = width < 640;
+                this.x = width * 0.5 + (Math.random() - 0.5) * (width * 0.36);
+                this.y = height * 0.78;
+                this.vy = -(0.62 + Math.random() * 0.32);
+                this.swayPhase = Math.random() * Math.PI * 2;
+                this.scale = isMobile ? 1.28 : 1.52;
+                this.alpha = 0;
+            }
+
+            update() {
+                this.y += this.vy;
+                this.swayPhase += 0.025;
+                this.x += Math.sin(this.swayPhase) * 0.52;
+                if (this.alpha < 1 && this.y > height * 0.2) {
+                    this.alpha = Math.min(1, this.alpha + 0.022);
+                }
+                if (this.y < height * 0.16) {
+                    this.alpha -= 0.012;
+                }
+            }
+
+            draw() {
+                if (this.alpha <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.translate(this.x, this.y);
+                ctx.scale(this.scale, this.scale);
+
+                // 放大的天灯温暖光晕
+                const glow = ctx.createRadialGradient(0, 2, 3, 0, 2, 66);
+                glow.addColorStop(0, 'rgba(255, 224, 135, 0.65)');
+                glow.addColorStop(0.45, 'rgba(255, 145, 55, 0.26)');
+                glow.addColorStop(0.78, 'rgba(255, 105, 35, 0.08)');
+                glow.addColorStop(1, 'rgba(255, 100, 30, 0)');
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(0, 2, 66, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 灯笼本体（更饱满的圆弧灯罩与骨架线条）
+                const w = 34;
+                const h = 42;
+                const bodyGrad = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+                bodyGrad.addColorStop(0, '#FF8533');
+                bodyGrad.addColorStop(0.48, '#FFC44D');
+                bodyGrad.addColorStop(1, '#FFF6C4');
+
+                ctx.fillStyle = bodyGrad;
+                ctx.beginPath();
+                ctx.moveTo(-w * 0.36, -h / 2);
+                ctx.quadraticCurveTo(0, -h * 0.58, w * 0.36, -h / 2);
+                ctx.bezierCurveTo(w * 0.62, -h * 0.15, w * 0.52, h * 0.25, w * 0.32, h / 2);
+                ctx.lineTo(-w * 0.32, h / 2);
+                ctx.bezierCurveTo(-w * 0.52, h * 0.25, -w * 0.62, -h * 0.15, -w * 0.36, -h / 2);
+                ctx.closePath();
+                ctx.fill();
+
+                // 灯笼纸骨架竖线与中心烛火
+                ctx.strokeStyle = 'rgba(180, 75, 15, 0.28)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, -h * 0.52);
+                ctx.lineTo(0, h * 0.5);
+                ctx.moveTo(-w * 0.24, -h * 0.48);
+                ctx.quadraticCurveTo(-w * 0.32, 0, -w * 0.16, h * 0.5);
+                ctx.moveTo(w * 0.24, -h * 0.48);
+                ctx.quadraticCurveTo(w * 0.32, 0, w * 0.16, h * 0.5);
+                ctx.stroke();
+
+                // 底部灯座与跃动烛芯光点
+                ctx.fillStyle = '#8C3B0A';
+                ctx.fillRect(-w * 0.22, h / 2 - 1, w * 0.44, 3);
+                ctx.fillStyle = '#FFFDF0';
+                ctx.beginPath();
+                ctx.arc(0, h * 0.26, 3.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 心愿文字标签（更清晰易读）
+                if (this.text) {
+                    ctx.font = '700 13px "Noto Serif SC", serif';
+                    ctx.textAlign = 'center';
+                    const textWidth = ctx.measureText(this.text).width + 16;
+                    const labelY = -h / 2 - 15;
+
+                    ctx.fillStyle = 'rgba(12, 19, 44, 0.58)';
+                    ctx.beginPath();
+                    ctx.roundRect(-textWidth / 2, labelY - 12, textWidth, 18, 9);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#FFF3C4';
+                    ctx.shadowColor = 'rgba(255, 165, 50, 0.6)';
+                    ctx.shadowBlur = 6;
+                    ctx.fillText(this.text, 0, labelY + 1);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        /**
+         * ============================================================================
+         * 5. 主渲染循环（夜空、雪地、虚幻圣诞树、树顶之星、烟花与雪花）
+         * ============================================================================
+         */
+        let lastAutoFireworkTime = 0;
+
+        function render(timestamp) {
+            requestAnimationFrame(render);
+
+            const theme = LIGHT_THEMES[currentThemeIdx];
+
+            // 1. 绘制深邃冬夜渐变天空
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+            skyGrad.addColorStop(0, '#030613');
+            skyGrad.addColorStop(0.52, '#091330');
+            skyGrad.addColorStop(0.86, '#102046');
+            skyGrad.addColorStop(1, '#162952');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            // 烟花绽放时的夜空瞬时辉光
+            if (skyFlashAlpha > 0.002) {
+                ctx.save();
+                ctx.globalAlpha = skyFlashAlpha;
+                ctx.fillStyle = `hsl(${skyFlashHue}, 90%, 65%)`;
+                ctx.fillRect(0, 0, width, height);
+                ctx.restore();
+                skyFlashAlpha *= 0.91;
+            }
+
+            // 2. 绘制闪烁星辰
+            for (let i = 0; i < stars.length; i++) {
+                const s = stars[i];
+                s.phase += s.speed;
+                const alpha = 0.25 + (Math.sin(s.phase) + 1) * 0.37;
+                ctx.fillStyle = `rgba(235, 245, 255, ${alpha.toFixed(2)})`;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 3. 自动定时放烟花（营造持续浪漫背景氛围）
+            if (timestamp - lastAutoFireworkTime > 2300) {
+                lastAutoFireworkTime = timestamp;
+                const tx = width * (0.15 + Math.random() * 0.7);
+                const ty = height * (0.12 + Math.random() * 0.34);
+                launchFireworkTo(tx, ty);
+            }
+
+            // 4. 更新并绘制烟花（在圣诞树后方绽放，层次更立体）
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                fireworks[i].update();
+                fireworks[i].draw();
+                if (fireworks[i].exploded) {
+                    fireworks.splice(i, 1);
+                }
+            }
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (let i = fireworkParticles.length - 1; i >= 0; i--) {
+                const p = fireworkParticles[i];
+                p.history.push({ x: p.x, y: p.y });
+                if (p.history.length > 5) p.history.shift();
+
+                p.vx *= p.drag;
+                p.vy *= p.drag;
+                p.vy += p.gravity;
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+
+                if (p.alpha <= 0.02) {
+                    fireworkParticles.splice(i, 1);
+                    continue;
+                }
+
+                // 拖尾光线
+                if (p.history.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(p.history[0].x, p.history[0].y);
+                    for (let j = 1; j < p.history.length; j++) {
+                        ctx.lineTo(p.history[j].x, p.history[j].y);
+                    }
+                    ctx.strokeStyle = `hsla(${p.hue}, 100%, ${p.lightness}%, ${p.alpha * 0.55})`;
+                    ctx.lineWidth = 1.6;
+                    ctx.stroke();
+                }
+
+                // 星火粒子核心
+                const flicker = p.sparkle && Math.random() > 0.7 ? 0.3 : 1;
+                ctx.fillStyle = `hsla(${p.hue}, 100%, ${p.lightness + 10}%, ${p.alpha * flicker})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 2.1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+
+            // 5. 绘制远景雪丘与圣诞树下方的全息能量光环底座
+            const meta = buildEtherealChristmasTree.meta;
+            const centerX = width * 0.5;
+            const centerY = height * (width < 640 ? 0.48 : 0.49);
+            const groundY = centerY + meta.treeHeight * 0.54;
+
+            // 远景起伏雪山剪影
+            ctx.fillStyle = '#09132B';
+            ctx.beginPath();
+            ctx.moveTo(0, height);
+            ctx.lineTo(0, groundY - 14);
+            ctx.quadraticCurveTo(width * 0.24, groundY - 46, width * 0.52, groundY - 12);
+            ctx.quadraticCurveTo(width * 0.80, groundY + 14, width, groundY - 26);
+            ctx.lineTo(width, height);
+            ctx.closePath();
+            ctx.fill();
+
+            // 近景静谧夜雪地面
+            const snowGroundGrad = ctx.createLinearGradient(0, groundY - 20, 0, height);
+            snowGroundGrad.addColorStop(0, '#0E1D3D');
+            snowGroundGrad.addColorStop(0.4, '#142750');
+            snowGroundGrad.addColorStop(1, '#1B3366');
+            ctx.fillStyle = snowGroundGrad;
+            ctx.beginPath();
+            ctx.ellipse(centerX, height + 40, width * 0.82, Math.max(95, height - groundY + 58), 0, Math.PI, Math.PI * 2);
+            ctx.fill();
+
+            // 树体背后的虚幻空灵光雾（Ethereal Aura）
+            const timeSec = timestamp * 0.001;
+            const auraPulse = 1 + Math.sin(timeSec * 1.6) * 0.06;
+            const treeBackGlow = ctx.createRadialGradient(
+                centerX, centerY, 8,
+                centerX, centerY, meta.treeHeight * 0.66 * auraPulse
+            );
+            treeBackGlow.addColorStop(0, theme.auraInner);
+            treeBackGlow.addColorStop(0.55, theme.treeGlow);
+            treeBackGlow.addColorStop(1, theme.auraOuter);
+            ctx.fillStyle = treeBackGlow;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, meta.treeHeight * 0.66 * auraPulse, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 6. 更新旋转物理惯性并绘制虚幻光影圣诞树（使用 additive 叠加混合营造通透发光感）
+            if (!isDragging) {
+                rotationAngle += angularVelocity;
+                angularVelocity += (0.005 - angularVelocity) * 0.03;
+            }
+
+            const fov = 740;
+
+            // 绘制树底全息涟漪光环底座
+            drawEtherealBaseRings(centerX, groundY, meta, theme, timeSec);
+
+            // 绘制轻盈半透明锥形光幕底韵
+            drawEtherealVeil(centerX, centerY, meta, theme);
+
+            // 计算所有 3D 星尘与光斑粒子的透视投影
+            const projected = new Array(treeElements.length);
+            for (let i = 0; i < treeElements.length; i++) {
+                const p = treeElements[i];
+                const theta = p.angle + rotationAngle;
+                const x3d = Math.cos(theta) * p.radius;
+                const z3d = Math.sin(theta) * p.radius;
+                const scale = fov / (fov + z3d);
+                projected[i] = {
+                    p,
+                    x2d: centerX + x3d * scale,
+                    y2d: centerY + p.y * scale,
+                    z3d,
+                    scale
+                };
+            }
+
+            // 按深度从远到近排序
+            projected.sort((a, b) => b.z3d - a.z3d);
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+
+            // 先绘制背面螺旋流光丝带（透出半透明层次）
+            drawEtherealRibbons(centerX, centerY, fov, theme, timeSec, true);
+
+            // 绘制虚幻星尘粒子与散景光斑
+            for (let i = 0; i < projected.length; i++) {
+                const { p, x2d, y2d, z3d, scale } = projected[i];
+                // 背面粒子适度降低透明度，形成前后通透的立体感
+                const depthFade = z3d > 0
+                    ? Math.max(0.22, 0.65 - (z3d / meta.maxRadius) * 0.42)
+                    : Math.min(1, 0.78 + (-z3d / meta.maxRadius) * 0.25);
+
+                if (p.type === 'coreDust') {
+                    const pulse = 0.45 + 0.55 * Math.sin(timeSec * p.speed + p.phase);
+                    const r = p.size * scale;
+                    ctx.fillStyle = `hsla(${theme.spiritHue}, 95%, 80%, ${0.32 * pulse * depthFade})`;
+                    ctx.beginPath();
+                    ctx.arc(x2d, y2d, r * 1.8, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (p.type === 'stardust') {
+                    const twinkle = 0.45 + 0.55 * Math.sin(timeSec * p.speed + p.phase);
+                    const r = p.size * scale * (0.85 + twinkle * 0.3);
+                    const hue = p.shellFactor > 0.9 ? theme.spiritHue : theme.spiritAccentHue;
+                    const lightness = p.shellFactor > 0.92 ? 84 : 68;
+                    const alpha = (p.shellFactor > 0.85 ? 0.68 : 0.35) * twinkle * depthFade;
+
+                    // 粒子微光晕
+                    ctx.fillStyle = `hsla(${hue}, 95%, ${lightness}%, ${alpha * 0.38})`;
+                    ctx.beginPath();
+                    ctx.arc(x2d, y2d, r * 2.2, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // 晶莹光点核心
+                    ctx.fillStyle = `hsla(${hue}, 100%, 92%, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(x2d, y2d, r * 0.72, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (p.type === 'bokehOrb') {
+                    const color = theme.fairyColors[p.colorIdx % theme.fairyColors.length];
+                    const pulse = 0.5 + 0.5 * Math.sin(timeSec * p.twinkleSpeed + p.twinklePhase);
+                    const radius = p.size * scale * (0.85 + pulse * 0.35);
+
+                    const bokehGrad = ctx.createRadialGradient(x2d, y2d, 0, x2d, y2d, radius * 2.8);
+                    bokehGrad.addColorStop(0, '#FFFFFF');
+                    bokehGrad.addColorStop(0.25, color);
+                    bokehGrad.addColorStop(0.65, color);
+                    bokehGrad.addColorStop(1, 'rgba(0,0,0,0)');
+
+                    ctx.globalAlpha = 0.55 * pulse * depthFade;
+                    ctx.fillStyle = bokehGrad;
+                    ctx.beginPath();
+                    ctx.arc(x2d, y2d, radius * 2.8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
+            }
+
+            // 绘制正面螺旋流光丝带
+            drawEtherealRibbons(centerX, centerY, fov, theme, timeSec, false);
+
+            // 绘制盘旋上升的虚幻萤火光灵
+            drawFloatingWisps(centerX, centerY, fov, meta, theme, timeSec);
+
+            ctx.restore();
+
+            // 7. 绘制树顶虚幻八芒伯利恒之星
+            drawTopStar(centerX, centerY - meta.treeHeight * 0.5 - 12, timeSec, theme.starColor);
+
+            // 8. 更新并绘制许愿天灯
+            for (let i = wishLanterns.length - 1; i >= 0; i--) {
+                wishLanterns[i].update();
+                wishLanterns[i].draw();
+                if (wishLanterns[i].alpha <= 0 && wishLanterns[i].y < height * 0.2) {
+                    wishLanterns.splice(i, 1);
+                }
+            }
+
+            // 9. 绘制飘落雪花
+            ctx.save();
+            for (let i = 0; i < snowflakes.length; i++) {
+                const sf = snowflakes[i];
+                sf.y += sf.speedY;
+                sf.driftPhase += 0.018;
+                sf.x += Math.sin(sf.driftPhase) * sf.driftAmp;
+
+                if (sf.y > height + 6) {
+                    sf.y = -6;
+                    sf.x = Math.random() * width;
+                }
+                if (sf.x > width + 6) sf.x = -6;
+                else if (sf.x < -6) sf.x = width + 6;
+
+                ctx.fillStyle = `rgba(240, 248, 255, ${sf.opacity})`;
+                ctx.beginPath();
+                ctx.arc(sf.x, sf.y, sf.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+            ctx.globalAlpha = 1;
+        }
+
+        // 绘制半透明全息光幕底韵（赋予圣诞树空灵的半透明体积感）
+        function drawEtherealVeil(centerX, centerY, meta, theme) {
+            const steps = 40;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY - meta.treeHeight * 0.5);
+            for (let i = 1; i <= steps; i++) {
+                const t = i / steps;
+                const r = meta.getEtherealRadius(t) * 0.94;
+                const y = centerY - meta.treeHeight * 0.5 + t * meta.treeHeight;
+                ctx.lineTo(centerX + r, y);
+            }
+            for (let i = steps; i >= 1; i--) {
+                const t = i / steps;
+                const r = meta.getEtherealRadius(t) * 0.94;
+                const y = centerY - meta.treeHeight * 0.5 + t * meta.treeHeight;
+                ctx.lineTo(centerX - r, y);
+            }
+            ctx.closePath();
+
+            const veilGrad = ctx.createLinearGradient(
+                centerX, centerY - meta.treeHeight * 0.5,
+                centerX, centerY + meta.treeHeight * 0.5
+            );
+            veilGrad.addColorStop(0, `hsla(${theme.spiritHue}, 95%, 78%, 0.16)`);
+            veilGrad.addColorStop(0.55, `hsla(${theme.spiritHue}, 90%, 62%, 0.08)`);
+            veilGrad.addColorStop(1, `hsla(${theme.spiritAccentHue}, 85%, 55%, 0.02)`);
+            ctx.fillStyle = veilGrad;
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // 绘制虚幻三重螺旋光波丝带
+        function drawEtherealRibbons(centerX, centerY, fov, theme, timeSec, drawBackHalf) {
+            for (let sIdx = 0; sIdx < ribbonStrips.length; sIdx++) {
+                const strip = ribbonStrips[sIdx];
+                for (let i = 0; i < strip.length - 1; i++) {
+                    const p1 = strip[i];
+                    const p2 = strip[i + 1];
+
+                    const th1 = p1.angle + rotationAngle;
+                    const th2 = p2.angle + rotationAngle;
+
+                    const z1 = Math.sin(th1) * p1.radius;
+                    const z2 = Math.sin(th2) * p2.radius;
+
+                    const isBack = (z1 + z2) * 0.5 > 0;
+                    if (isBack !== drawBackHalf) continue;
+
+                    const sc1 = fov / (fov + z1);
+                    const sc2 = fov / (fov + z2);
+
+                    const x1 = centerX + Math.cos(th1) * p1.radius * sc1;
+                    const y1 = centerY + p1.y * sc1;
+                    const x2 = centerX + Math.cos(th2) * p2.radius * sc2;
+                    const y2 = centerY + p2.y * sc2;
+
+                    const wavePulse = 0.55 + 0.45 * Math.sin(p1.t * 16 - timeSec * 3.6 + sIdx * 2.1);
+                    const ribbonW = (1.6 + p1.t * 3.4) * p1.widthScale * sc1;
+                    const alphaScale = drawBackHalf ? 0.24 : 0.85;
+
+                    // 柔光羽化光带
+                    ctx.strokeStyle = theme.ribbonColor;
+                    ctx.globalAlpha = alphaScale * wavePulse;
+                    ctx.lineWidth = ribbonW * 2.6;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+
+                    // 纤细高光能量丝线
+                    ctx.strokeStyle = theme.ribbonEdge;
+                    ctx.globalAlpha = alphaScale * wavePulse * 0.9;
+                    ctx.lineWidth = Math.max(0.8, ribbonW * 0.45);
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                }
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        // 绘制树底全息涟漪能量光环底座
+        function drawEtherealBaseRings(centerX, groundY, meta, theme, timeSec) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+
+            // 地面漫反射光斑
+            const floorGlow = ctx.createRadialGradient(centerX, groundY, 4, centerX, groundY, meta.maxRadius * 1.55);
+            floorGlow.addColorStop(0, theme.auraInner);
+            floorGlow.addColorStop(0.5, theme.treeGlow);
+            floorGlow.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = floorGlow;
+            ctx.beginPath();
+            ctx.ellipse(centerX, groundY, meta.maxRadius * 1.55, meta.maxRadius * 0.36, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 三层动态扩散全息光环
+            for (let rIdx = 0; rIdx < 3; rIdx++) {
+                const wave = ((timeSec * 0.45 + rIdx * 0.33) % 1);
+                const rx = meta.maxRadius * (0.45 + wave * 0.95);
+                const ry = rx * 0.24;
+                const alpha = (1 - wave) * 0.42;
+
+                ctx.strokeStyle = `hsla(${theme.spiritHue}, 95%, 78%, ${alpha})`;
+                ctx.lineWidth = 1.6 - wave * 0.8;
+                ctx.beginPath();
+                ctx.ellipse(centerX, groundY, rx, ry, 0, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        // 绘制围绕圣诞树盘旋上升的虚幻萤火光灵
+        function drawFloatingWisps(centerX, centerY, fov, meta, theme, timeSec) {
+            for (let i = 0; i < floatingWisps.length; i++) {
+                const w = floatingWisps[i];
+                w.t -= w.riseSpeed;
+                w.angle += w.orbitSpeed;
+                if (w.t < 0.02) {
+                    w.t = 0.98;
+                }
+
+                const theta = w.angle + rotationAngle * 0.6;
+                const r = meta.getEtherealRadius(w.t) * w.radialOffset;
+                const y = -meta.treeHeight * 0.5 + w.t * meta.treeHeight;
+
+                const x3d = Math.cos(theta) * r;
+                const z3d = Math.sin(theta) * r;
+                const scale = fov / (fov + z3d);
+
+                const x2d = centerX + x3d * scale;
+                const y2d = centerY + y * scale;
+
+                const fadeEdge = Math.sin(w.t * Math.PI); // 顶部与底部淡入淡出
+                const pulse = 0.5 + 0.5 * Math.sin(timeSec * 3.2 + w.phase);
+                const alpha = fadeEdge * pulse * (z3d > 0 ? 0.35 : 0.85);
+                const radius = w.size * scale;
+
+                ctx.fillStyle = `hsla(${theme.spiritHue}, 100%, 82%, ${alpha * 0.35})`;
+                ctx.beginPath();
+                ctx.arc(x2d, y2d, radius * 2.8, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(x2d, y2d, radius * 0.75, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // 绘制立体八芒伯利恒之星（含十字镜头星芒与呼吸光环）
+        function drawTopStar(x, y, timeSec, starColor) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            const pulse = 1 + Math.sin(timeSec * 2.8) * 0.08;
+            const isMobile = width < 640;
+            const mainR = (isMobile ? 20 : 26) * pulse;
+            const diagR = mainR * 0.64;
+            const innerR = mainR * 0.26;
+
+            // 外层温暖光晕
+            const halo = ctx.createRadialGradient(0, 0, 2, 0, 0, mainR * 3.1);
+            halo.addColorStop(0, 'rgba(255, 253, 225, 0.96)');
+            halo.addColorStop(0.3, 'rgba(255, 218, 115, 0.45)');
+            halo.addColorStop(0.65, 'rgba(255, 190, 75, 0.14)');
+            halo.addColorStop(1, 'rgba(255, 180, 60, 0)');
+            ctx.fillStyle = halo;
+            ctx.beginPath();
+            ctx.arc(0, 0, mainR * 3.1, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 纤细十字星芒射线（Lens Flare）
+            const flareGradH = ctx.createLinearGradient(-mainR * 2.4, 0, mainR * 2.4, 0);
+            flareGradH.addColorStop(0, 'rgba(255, 250, 220, 0)');
+            flareGradH.addColorStop(0.5, 'rgba(255, 252, 235, 0.85)');
+            flareGradH.addColorStop(1, 'rgba(255, 250, 220, 0)');
+            ctx.fillStyle = flareGradH;
+            ctx.fillRect(-mainR * 2.4, -1, mainR * 4.8, 2);
+
+            const flareGradV = ctx.createLinearGradient(0, -mainR * 2.4, 0, mainR * 2.4);
+            flareGradV.addColorStop(0, 'rgba(255, 250, 220, 0)');
+            flareGradV.addColorStop(0.5, 'rgba(255, 252, 235, 0.85)');
+            flareGradV.addColorStop(1, 'rgba(255, 250, 220, 0)');
+            ctx.fillStyle = flareGradV;
+            ctx.fillRect(-1, -mainR * 2.4, 2, mainR * 4.8);
+
+            // 立体八芒星主体（长短角交错）
+            ctx.fillStyle = starColor;
+            ctx.beginPath();
+            const points = 16;
+            for (let i = 0; i < points; i++) {
+                let r = innerR;
+                if (i % 4 === 0) r = mainR;
+                else if (i % 2 === 0) r = diagR;
+                const a = (i * Math.PI) / 8 - Math.PI / 2;
+                const px = Math.cos(a) * r;
+                const py = Math.sin(a) * r;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            // 中心炽白星核
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(0, 0, innerR * 0.85, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        /**
+         * ============================================================================
+         * 6. 鼠标与触摸交互逻辑（支持点击放烟花、横向滑动旋转圣诞树）
+         * ============================================================================
+         */
+        function handlePointerDown(clientX, clientY) {
+            isDragging = true;
+            dragStartX = clientX;
+            dragStartY = clientY;
+            lastDragX = clientX;
+            dragMoved = false;
+        }
+
+        function handlePointerMove(clientX, clientY) {
+            if (!isDragging) return;
+            const dx = clientX - lastDragX;
+            if (Math.abs(clientX - dragStartX) > 6 || Math.abs(clientY - dragStartY) > 6) {
+                dragMoved = true;
+            }
+            rotationAngle += dx * 0.0085;
+            angularVelocity = dx * 0.006;
+            lastDragX = clientX;
+        }
+
+        function handlePointerUp(clientX, clientY) {
+            if (!isDragging) return;
+            isDragging = false;
+            // 如果是轻点而非拖拽，在点击位置精准燃放一朵绚丽烟花
+            if (!dragMoved) {
+                const targetY = Math.min(clientY, height * 0.68);
+                launchFireworkTo(clientX, targetY);
+            }
+        }
+
+        canvas.addEventListener('mousedown', (e) => handlePointerDown(e.clientX, e.clientY));
+        window.addEventListener('mousemove', (e) => handlePointerMove(e.clientX, e.clientY));
+        window.addEventListener('mouseup', (e) => handlePointerUp(e.clientX, e.clientY));
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 0) {
+                handlePointerDown(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: true });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) {
+                handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (e.changedTouches.length > 0) {
+                handlePointerUp(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+            }
+        });
+
+        /**
+         * ============================================================================
+         * 7. UI 控制面板绑定
+         * ============================================================================
+         */
+        function showToast(message) {
+            const toast = document.getElementById('toastMsg');
+            toast.firstElementChild.textContent = message;
+            toast.classList.remove('opacity-0');
+            toast.classList.add('opacity-100');
+            clearTimeout(showToast.timer);
+            showToast.timer = setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0');
+            }, 2200);
+        }
+
+        // 音频开关
+        const audioToggleBtn = document.getElementById('audioToggleBtn');
+        audioToggleBtn.addEventListener('click', () => {
+            const playing = soundEngine.toggle();
+            document.getElementById('audioIcon').textContent = playing ? '🎵' : '🔇';
+            document.getElementById('audioText').textContent = playing ? '音乐开启' : '开启音乐';
+            showToast(playing ? '🎄 圣诞八音盒与烟花音效已开启' : '🔇 已静音');
+        });
+
+        // 纯净观赏模式（隐藏/显示UI）
+        let uiVisible = true;
+        const toggleUiBtn = document.getElementById('toggleUiBtn');
+        toggleUiBtn.addEventListener('click', () => {
+            uiVisible = !uiVisible;
+            const headerTitle = document.getElementById('headerTitle');
+            const controlDock = document.getElementById('controlDock');
+            const toggleUiText = document.getElementById('toggleUiText');
+
+            if (uiVisible) {
+                headerTitle.classList.remove('ui-hidden');
+                controlDock.classList.remove('ui-hidden');
+                toggleUiText.textContent = '纯净模式';
+            } else {
+                headerTitle.classList.add('ui-hidden');
+                controlDock.classList.add('ui-hidden');
+                toggleUiText.textContent = '显示面板';
+            }
+        });
+
+        // 盛大烟花按钮
+        document.getElementById('burstFireworksBtn').addEventListener('click', () => {
+            launchGrandFinale();
+        });
+
+        // 切换圣诞树灯光主题
+        document.getElementById('themeSwitchBtn').addEventListener('click', () => {
+            currentThemeIdx = (currentThemeIdx + 1) % LIGHT_THEMES.length;
+            const theme = LIGHT_THEMES[currentThemeIdx];
+            document.getElementById('themeNameLabel').textContent = theme.name;
+            showToast(`✨ 已切换至「${theme.name}」主题`);
+        });
+
+        // 许愿灯弹窗交互
+        const wishModal = document.getElementById('wishModal');
+        const wishInput = document.getElementById('wishInput');
+
+        document.getElementById('openWishBtn').addEventListener('click', () => {
+            wishModal.classList.remove('hidden');
+            wishModal.classList.add('flex');
+            setTimeout(() => wishInput.focus(), 80);
+        });
+
+        function closeWishModal() {
+            wishModal.classList.add('hidden');
+            wishModal.classList.remove('flex');
+        }
+
+        document.getElementById('cancelWishBtn').addEventListener('click', closeWishModal);
+        wishModal.addEventListener('click', (e) => {
+            if (e.target === wishModal) closeWishModal();
+        });
+
+        // 快捷心愿标签填充
+        document.querySelectorAll('.quick-wish').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                wishInput.value = btn.textContent.trim();
+            });
+        });
+
+        // 放飞许愿天灯
+        function releaseWish() {
+            const text = wishInput.value.trim() || '圣诞快乐，平安喜乐 ✨';
+            wishLanterns.push(new WishLantern(text));
+            wishInput.value = '';
+            closeWishModal();
+            showToast('🏮 心愿天灯已升空，愿梦想成真！');
+            // 伴随放飞一朵金色祝福烟花
+            launchFireworkTo(width * 0.5, height * 0.24);
+        }
+
+        document.getElementById('sendWishBtn').addEventListener('click', releaseWish);
+        wishInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') releaseWish();
+        });
+
+        // 窗口尺寸变化监听与启动
+        window.addEventListener('resize', resizeCanvas);
+        window.onload = function () {
+            resizeCanvas();
+            // 初始开场礼花欢迎
+            setTimeout(() => {
+                launchFireworkTo(width * 0.32, height * 0.25);
+                launchFireworkTo(width * 0.68, height * 0.22);
+            }, 400);
+            requestAnimationFrame(render);
+        };
+    </script>
+</body>
+</html>
