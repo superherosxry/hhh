@@ -1,0 +1,2111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>梦幻圣诞夜 · 虚幻光影圣诞树与烟花盛典</title>
+    <!-- 引入 Tailwind CSS 用于响应式毛玻璃控制面板布局 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入优雅的中英文字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+        }
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            background: #030510;
+            font-family: 'Noto Serif SC', serif;
+            overscroll-behavior: none;
+        }
+        #sceneCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            touch-action: none;
+        }
+        .font-festive {
+            font-family: 'Cinzel Decorative', 'Noto Serif SC', serif;
+        }
+        /* 精致毛玻璃效果 */
+        .glass-panel {
+            background: rgba(12, 19, 44, 0.58);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.48);
+        }
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.09);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .glass-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+            border-color: rgba(255, 225, 150, 0.5);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(255, 210, 110, 0.22);
+        }
+        .glass-btn:active {
+            transform: scale(0.95);
+        }
+        .glass-btn.active-gala {
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.35), rgba(236, 72, 153, 0.35));
+            border-color: rgba(253, 224, 71, 0.8);
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+        }
+        @keyframes floatGlow {
+            0%, 100% { text-shadow: 0 0 14px rgba(255, 215, 110, 0.6), 0 0 28px rgba(255, 160, 60, 0.3); }
+            50% { text-shadow: 0 0 22px rgba(255, 230, 150, 0.9), 0 0 40px rgba(255, 180, 80, 0.5); }
+        }
+        .title-glow {
+            animation: floatGlow 3.5s ease-in-out infinite;
+        }
+        .ui-transition {
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        .ui-hidden {
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(14px);
+        }
+        /* 自定义细滚动条（许愿瓶列表） */
+        .custom-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(255, 215, 130, 0.35);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="text-white antialiased">
+
+    <!-- 全屏交互主画布 -->
+    <canvas id="sceneCanvas"></canvas>
+
+    <!-- 顶部标题、圣诞实时倒计时与右上角功能区 -->
+    <header class="fixed top-0 left-0 right-0 z-10 flex items-start justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))] sm:p-6 pointer-events-none">
+        <div id="headerTitle" class="ui-transition max-w-[60%] sm:max-w-none">
+            <h1 class="font-festive text-lg sm:text-3xl font-bold tracking-wider text-amber-100 title-glow leading-tight">
+                Merry Christmas
+            </h1>
+            <!-- 圣诞实时倒计时徽章 -->
+            <div id="countdownBadge" class="inline-flex items-center gap-1.5 mt-1.5 px-2.5 py-0.5 rounded-full bg-white/10 border border-amber-200/25 text-[11px] sm:text-xs text-amber-200/95 backdrop-blur-md">
+                <span>⏳</span>
+                <span id="countdownText">正在计算圣诞倒计时...</span>
+            </div>
+            <p class="hidden sm:block text-xs text-blue-200/75 mt-1.5 tracking-widest">
+                点击夜空放烟花 · 捕捉流星触发心形礼花 · 轻点树顶星星3次解锁彩蛋
+            </p>
+        </div>
+
+        <!-- 右上角控制按钮组（始终可点击） -->
+        <div class="flex items-center gap-1.5 sm:gap-2.5 pointer-events-auto">
+            <!-- 星尘许愿瓶按钮 -->
+            <button id="openBottleBtn" aria-label="星尘许愿瓶"
+                class="glass-btn relative rounded-full px-3 py-2 sm:px-3.5 sm:py-2.5 flex items-center gap-1.5 text-xs sm:text-sm font-medium text-amber-100 cursor-pointer">
+                <span class="text-sm sm:text-base">🫙</span>
+                <span class="hidden md:inline">星愿瓶</span>
+                <span id="wishCountBadge" class="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-400/30 text-amber-200 font-bold">0</span>
+            </button>
+
+            <!-- 音乐与音效开关 -->
+            <button id="audioToggleBtn" aria-label="切换音乐与音效"
+                class="glass-btn rounded-full px-3 py-2 sm:px-3.5 sm:py-2.5 flex items-center gap-1.5 text-xs sm:text-sm font-medium text-amber-100 cursor-pointer">
+                <span id="audioIcon" class="text-sm sm:text-base">🔇</span>
+                <span id="audioText" class="hidden md:inline">开启音乐</span>
+            </button>
+
+            <!-- 隐藏/显示面板按钮（纯净观赏模式） -->
+            <button id="toggleUiBtn" aria-label="隐藏或显示界面"
+                class="glass-btn rounded-full p-2 sm:px-3.5 sm:py-2.5 flex items-center gap-1.5 text-xs sm:text-sm text-blue-100 cursor-pointer">
+                <svg id="eyeIcon" class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span id="toggleUiText" class="hidden md:inline">纯净模式</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 盛典进行中横幅提示 -->
+    <div id="galaBanner" class="fixed top-20 sm:top-24 left-1/2 -translate-x-1/2 z-10 pointer-events-none opacity-0 transition-opacity duration-500">
+        <div class="glass-panel px-4 py-1.5 rounded-full border border-amber-300/50 text-xs sm:text-sm text-amber-200 font-semibold tracking-wider shadow-lg flex items-center gap-2">
+            <span>🎆</span>
+            <span id="galaBannerText">圣诞烟花盛典进行中 · 15s</span>
+        </div>
+    </div>
+
+    <!-- 专属祝福贺卡横幅（通过 ?to=&msg= 参数打开时自动呈现） -->
+    <div id="greetingCardBanner" class="fixed top-24 sm:top-28 left-1/2 -translate-x-1/2 z-20 hidden w-[90%] max-w-md">
+        <div class="glass-panel rounded-3xl p-5 text-center border border-amber-300/45 shadow-2xl relative">
+            <button id="closeGreetingBannerBtn" aria-label="关闭祝福卡片"
+                class="absolute top-3 right-3.5 text-blue-200/70 hover:text-white text-sm cursor-pointer p-1">✕</button>
+            <div class="text-xs tracking-widest text-amber-300/90 mb-1">✨ 收到一份专属圣诞夜祝福 ✨</div>
+            <h2 id="greetingToTitle" class="text-lg sm:text-xl font-bold text-amber-100 mb-2">To: 特别的你</h2>
+            <p id="greetingMsgBody" class="text-sm sm:text-base text-blue-100/95 leading-relaxed mb-3">
+                愿这个冬夜的烟花与星光，为你照亮新一年的所有美好！
+            </p>
+            <button id="replayGreetingFireworkBtn"
+                class="px-4 py-1.5 rounded-full bg-amber-400/25 hover:bg-amber-400/40 border border-amber-300/40 text-xs text-amber-100 transition cursor-pointer">
+                💖 再放一次心形烟花
+            </button>
+        </div>
+    </div>
+
+    <!-- 底部毛玻璃控制栏（适配手机与电脑，4大核心功能） -->
+    <footer id="controlDock" class="fixed bottom-4 bottom-[max(1rem,env(safe-area-inset-bottom))] sm:bottom-6 left-1/2 -translate-x-1/2 z-10 w-[95%] max-w-2xl ui-transition">
+        <div class="glass-panel rounded-2xl sm:rounded-3xl p-2 sm:p-3 grid grid-cols-4 gap-1.5 sm:gap-2.5">
+            
+            <!-- 1. 一键盛典按钮 -->
+            <button id="galaShowBtn"
+                class="glass-btn rounded-xl sm:rounded-2xl py-2 sm:py-2.5 px-1.5 sm:px-3 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 text-amber-200 font-semibold text-[11px] sm:text-sm cursor-pointer">
+                <span class="text-base sm:text-lg">🎆</span>
+                <span id="galaBtnLabel">一键盛典</span>
+            </button>
+
+            <!-- 2. 灯光主题切换按钮 -->
+            <button id="themeSwitchBtn"
+                class="glass-btn rounded-xl sm:rounded-2xl py-2 sm:py-2.5 px-1.5 sm:px-3 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 text-cyan-200 font-semibold text-[11px] sm:text-sm cursor-pointer">
+                <span class="text-base sm:text-lg">🎄</span>
+                <span id="themeNameLabel" class="truncate max-w-full">流金星尘</span>
+            </button>
+
+            <!-- 3. 放飞许愿灯按钮 -->
+            <button id="openWishBtn"
+                class="glass-btn rounded-xl sm:rounded-2xl py-2 sm:py-2.5 px-1.5 sm:px-3 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 text-rose-200 font-semibold text-[11px] sm:text-sm cursor-pointer">
+                <span class="text-base sm:text-lg">🏮</span>
+                <span>许愿天灯</span>
+            </button>
+
+            <!-- 4. 专属祝福链接生成器按钮 -->
+            <button id="openShareBtn"
+                class="glass-btn rounded-xl sm:rounded-2xl py-2 sm:py-2.5 px-1.5 sm:px-3 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 text-purple-200 font-semibold text-[11px] sm:text-sm cursor-pointer">
+                <span class="text-base sm:text-lg">💌</span>
+                <span>专属祝福</span>
+            </button>
+
+        </div>
+    </footer>
+
+    <!-- 弹窗 1：放飞许愿灯输入弹窗 -->
+    <div id="wishModal" class="fixed inset-0 z-20 hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 text-center relative border border-amber-300/30">
+            <h2 class="text-xl font-bold text-amber-200 mb-1">✨ 写下你的圣诞心愿</h2>
+            <p class="text-xs text-blue-200/80 mb-4">心愿将化作温暖天灯缓缓升空，并存入星愿瓶</p>
+            
+            <input id="wishInput" type="text" maxlength="24" placeholder="例如：愿家人平安喜乐，万事胜意..."
+                class="w-full rounded-xl bg-white/10 border border-white/25 px-4 py-3 text-sm text-white placeholder-blue-200/50 focus:outline-none focus:border-amber-300 mb-3 text-center">
+            
+            <!-- 快捷心愿标签 -->
+            <div class="flex flex-wrap justify-center gap-1.5 mb-5">
+                <button type="button" class="quick-wish text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-amber-400/25 text-amber-100 border border-white/15 transition cursor-pointer">平安喜乐 ✨</button>
+                <button type="button" class="quick-wish text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-amber-400/25 text-amber-100 border border-white/15 transition cursor-pointer">暴富暴美 🎁</button>
+                <button type="button" class="quick-wish text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-amber-400/25 text-amber-100 border border-white/15 transition cursor-pointer">得偿所愿 🌟</button>
+                <button type="button" class="quick-wish text-xs px-2.5 py-1 rounded-full bg-white/10 hover:bg-amber-400/25 text-amber-100 border border-white/15 transition cursor-pointer">圣诞快乐 🎄</button>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="cancelWishBtn"
+                    class="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm text-gray-200 transition cursor-pointer">
+                    取消
+                </button>
+                <button id="sendWishBtn"
+                    class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/30 transition cursor-pointer">
+                    放飞心愿 🏮
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 弹窗 2：专属祝福链接生成器弹窗 -->
+    <div id="shareModal" class="fixed inset-0 z-20 hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 text-center relative border border-purple-300/30">
+            <h2 class="text-xl font-bold text-amber-200 mb-1">💌 定制专属圣诞祝福网址</h2>
+            <p class="text-xs text-blue-200/80 mb-4">填写对方昵称与祝福语，生成专属链接发给TA，打开即放心形烟花</p>
+
+            <div class="space-y-3 mb-4 text-left">
+                <div>
+                    <label class="block text-xs text-blue-200/90 mb-1 ml-1">送给谁（对方昵称）：</label>
+                    <input id="shareToInput" type="text" maxlength="16" placeholder="例如：小美 / 亲爱的 / 最好的朋友"
+                        class="w-full rounded-xl bg-white/10 border border-white/25 px-3.5 py-2.5 text-sm text-white placeholder-blue-200/45 focus:outline-none focus:border-amber-300">
+                </div>
+                <div>
+                    <label class="block text-xs text-blue-200/90 mb-1 ml-1">秘密圣诞寄语：</label>
+                    <input id="shareMsgInput" type="text" maxlength="36" placeholder="例如：愿岁岁年年，万喜万般宜，圣诞快乐！"
+                        class="w-full rounded-xl bg-white/10 border border-white/25 px-3.5 py-2.5 text-sm text-white placeholder-blue-200/45 focus:outline-none focus:border-amber-300">
+                </div>
+            </div>
+
+            <!-- 生成结果预览框 -->
+            <div class="bg-black/30 rounded-xl p-2.5 mb-4 border border-white/10">
+                <input id="generatedShareUrl" type="text" readonly
+                    class="w-full bg-transparent text-[11px] text-amber-200/90 focus:outline-none text-center select-all">
+            </div>
+
+            <div class="flex gap-3">
+                <button id="cancelShareBtn"
+                    class="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm text-gray-200 transition cursor-pointer">
+                    关闭
+                </button>
+                <button id="copyShareUrlBtn"
+                    class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-amber-500 hover:from-pink-400 hover:to-amber-400 text-slate-950 font-bold text-sm shadow-lg shadow-pink-500/25 transition cursor-pointer">
+                    复制专属链接 📋
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 弹窗 3：星尘许愿瓶记录弹窗 -->
+    <div id="bottleModal" class="fixed inset-0 z-20 hidden items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 text-center relative border border-amber-300/30">
+            <h2 class="text-xl font-bold text-amber-200 mb-1">🫙 星尘许愿瓶</h2>
+            <p class="text-xs text-blue-200/80 mb-4">这里珍藏着你在圣诞夜放飞的所有心愿</p>
+
+            <div id="wishHistoryList" class="max-h-60 overflow-y-auto custom-scroll space-y-2 mb-5 text-left px-1">
+                <!-- 动态渲染愿望清单 -->
+            </div>
+
+            <div class="flex gap-3">
+                <button id="closeBottleBtn"
+                    class="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-sm text-gray-200 transition cursor-pointer">
+                    收起星愿瓶
+                </button>
+                <button id="relaunchAllWishesBtn"
+                    class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/25 transition cursor-pointer">
+                    重放全部心愿 ✨
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 轻提示 Toast 消息框 -->
+    <div id="toastMsg" class="fixed top-20 left-1/2 -translate-x-1/2 z-30 pointer-events-none opacity-0 transition-opacity duration-300">
+        <div class="glass-panel px-4 py-2 rounded-full text-xs sm:text-sm text-amber-200 border border-amber-300/30 shadow-lg whitespace-nowrap">
+            提示信息
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ============================================================================
+         * 1. Web Audio API 圣诞纯音乐（空灵钢琴八音盒 + 温暖和弦垫 + 烟花音效）
+         * ============================================================================
+         */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.masterGain = null;
+                this.reverbSend = null;
+                this.isPlaying = false;
+                this.noteTimer = null;
+                this.step = 0;
+
+                // 舒缓版圣诞纯音乐乐章：《平安夜 Silent Night》+《铃儿响叮当》梦幻变奏
+                this.melody = [
+                    // 第一乐段：《平安夜 Silent Night》空灵前奏与主歌（3/4拍 华尔兹律动）
+                    [392.00, 1.5, 130.81], [440.00, 0.5, 0], [392.00, 1.0, 0],
+                    [329.63, 3.0, 164.81],
+                    [392.00, 1.5, 130.81], [440.00, 0.5, 0], [392.00, 1.0, 0],
+                    [329.63, 3.0, 164.81],
+
+                    [587.33, 2.0, 146.83], [587.33, 1.0, 0],
+                    [493.88, 3.0, 196.00],
+                    [523.25, 2.0, 130.81], [523.25, 1.0, 0],
+                    [392.00, 3.0, 164.81],
+
+                    [440.00, 2.0, 174.61], [440.00, 1.0, 0],
+                    [523.25, 1.5, 174.61], [493.88, 0.5, 0], [440.00, 1.0, 0],
+                    [392.00, 1.5, 130.81], [440.00, 0.5, 0], [392.00, 1.0, 0],
+                    [329.63, 3.0, 164.81],
+
+                    [587.33, 2.0, 146.83], [587.33, 1.0, 0],
+                    [698.46, 1.5, 196.00], [587.33, 0.5, 0], [493.88, 1.0, 0],
+                    [523.25, 3.0, 130.81],
+                    [659.25, 3.0, 164.81],
+
+                    [523.25, 1.5, 130.81], [392.00, 0.5, 0], [329.63, 1.0, 0],
+                    [392.00, 1.5, 196.00], [349.23, 0.5, 0], [293.66, 1.0, 0],
+                    [261.63, 4.5, 130.81], [0, 1.5, 0],
+
+                    // 第二乐段：《铃儿响叮当》八音盒星光变奏（轻柔慢板）
+                    [659.25, 1.0, 130.81], [659.25, 1.0, 0], [659.25, 2.0, 164.81],
+                    [659.25, 1.0, 130.81], [659.25, 1.0, 0], [659.25, 2.0, 164.81],
+                    [659.25, 1.0, 130.81], [783.99, 1.0, 0], [523.25, 1.5, 174.61], [587.33, 0.5, 0],
+                    [659.25, 3.5, 130.81], [0, 0.5, 0],
+
+                    [698.46, 1.0, 174.61], [698.46, 1.0, 0], [698.46, 1.5, 174.61], [698.46, 0.5, 0],
+                    [698.46, 1.0, 130.81], [659.25, 1.0, 0], [659.25, 1.5, 164.81], [659.25, 0.5, 0],
+                    [783.99, 1.0, 196.00], [783.99, 1.0, 0], [698.46, 1.0, 0], [587.33, 1.0, 0],
+                    [523.25, 4.5, 130.81], [0, 1.5, 0]
+                ];
+            }
+
+            initAudioGraph() {
+                if (this.ctx) return;
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.setValueAtTime(0.85, this.ctx.currentTime);
+                this.masterGain.connect(this.ctx.destination);
+
+                // 立体声回声延迟总线
+                const delay = this.ctx.createDelay(1.0);
+                delay.delayTime.setValueAtTime(0.42, this.ctx.currentTime);
+
+                const feedback = this.ctx.createGain();
+                feedback.gain.setValueAtTime(0.36, this.ctx.currentTime);
+
+                const wetFilter = this.ctx.createBiquadFilter();
+                wetFilter.type = 'lowpass';
+                wetFilter.frequency.setValueAtTime(1800, this.ctx.currentTime);
+
+                this.reverbSend = this.ctx.createGain();
+                this.reverbSend.gain.setValueAtTime(0.35, this.ctx.currentTime);
+
+                this.reverbSend.connect(delay);
+                delay.connect(wetFilter);
+                wetFilter.connect(feedback);
+                feedback.connect(delay);
+                wetFilter.connect(this.masterGain);
+            }
+
+            toggle() {
+                this.initAudioGraph();
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+
+                this.isPlaying = !this.isPlaying;
+                if (this.isPlaying) {
+                    this.scheduleNextNote();
+                } else {
+                    clearTimeout(this.noteTimer);
+                }
+                return this.isPlaying;
+            }
+
+            playMusicBoxTone(freq, durationSec) {
+                if (!this.ctx || !this.isPlaying || freq <= 0) return;
+                const now = this.ctx.currentTime;
+                const release = Math.max(1.4, durationSec * 1.85);
+
+                const osc1 = this.ctx.createOscillator();
+                const osc2 = this.ctx.createOscillator();
+                const noteGain = this.ctx.createGain();
+
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(freq, now);
+
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(freq * 2, now);
+                const overtoneGain = this.ctx.createGain();
+                overtoneGain.gain.setValueAtTime(0.14, now);
+                overtoneGain.gain.exponentialRampToValueAtTime(0.001, now + release * 0.65);
+
+                noteGain.gain.setValueAtTime(0.0008, now);
+                noteGain.gain.linearRampToValueAtTime(0.095, now + 0.035);
+                noteGain.gain.exponentialRampToValueAtTime(0.0008, now + release);
+
+                osc1.connect(noteGain);
+                osc2.connect(overtoneGain);
+                overtoneGain.connect(noteGain);
+
+                noteGain.connect(this.masterGain);
+                noteGain.connect(this.reverbSend);
+
+                osc1.start(now);
+                osc2.start(now);
+                osc1.stop(now + release + 0.05);
+                osc2.stop(now + release + 0.05);
+            }
+
+            playWarmPad(bassFreq, durationSec) {
+                if (!this.ctx || !this.isPlaying || !bassFreq || bassFreq <= 0) return;
+                const now = this.ctx.currentTime;
+                const padDuration = Math.max(2.2, durationSec * 2.8);
+
+                const freqs = [bassFreq, bassFreq * 1.498, bassFreq * 2];
+                freqs.forEach((f, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const filter = this.ctx.createBiquadFilter();
+                    const padGain = this.ctx.createGain();
+
+                    osc.type = idx === 0 ? 'sine' : 'triangle';
+                    osc.frequency.setValueAtTime(f, now);
+
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(520, now);
+
+                    const peak = idx === 0 ? 0.055 : 0.024;
+                    padGain.gain.setValueAtTime(0.0005, now);
+                    padGain.gain.linearRampToValueAtTime(peak, now + 0.45);
+                    padGain.gain.exponentialRampToValueAtTime(0.0005, now + padDuration);
+
+                    osc.connect(filter);
+                    filter.connect(padGain);
+                    padGain.connect(this.masterGain);
+                    padGain.connect(this.reverbSend);
+
+                    osc.start(now);
+                    osc.stop(now + padDuration + 0.05);
+                });
+            }
+
+            playChimeSparkle() {
+                if (!this.ctx || !this.isPlaying) return;
+                const notes = [1046.5, 1318.5, 1567.98, 2093.0];
+                notes.forEach((f, idx) => {
+                    setTimeout(() => this.playMusicBoxTone(f, 0.5), idx * 75);
+                });
+            }
+
+            scheduleNextNote() {
+                if (!this.isPlaying) return;
+                const [freq, beats, bassFreq] = this.melody[this.step % this.melody.length];
+                const beatDuration = 0.56;
+                const duration = beats * beatDuration;
+
+                this.playMusicBoxTone(freq, duration);
+                if (bassFreq) {
+                    this.playWarmPad(bassFreq, duration);
+                }
+
+                this.step++;
+                this.noteTimer = setTimeout(() => this.scheduleNextNote(), duration * 1000);
+            }
+
+            playFireworkPop(intensity = 1) {
+                if (!this.ctx || !this.isPlaying) return;
+                try {
+                    const now = this.ctx.currentTime;
+                    const bufferSize = this.ctx.sampleRate * 0.5;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.11));
+                    }
+
+                    const noise = this.ctx.createBufferSource();
+                    noise.buffer = buffer;
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(320 * intensity, now);
+                    filter.frequency.exponentialRampToValueAtTime(80, now + 0.45);
+
+                    const gain = this.ctx.createGain();
+                    gain.gain.setValueAtTime(0.11 * intensity, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+                    noise.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(this.masterGain);
+                    gain.connect(this.reverbSend);
+
+                    noise.start(now);
+                } catch (e) {}
+            }
+        }
+
+        const soundEngine = new SoundEngine();
+
+        /**
+         * ============================================================================
+         * 2. 虚幻光影圣诞树美学主题配置（含隐藏彩蛋主题「香槟玫瑰金」）
+         * ============================================================================
+         */
+        const BASE_THEMES = [
+            {
+                name: '流金星尘',
+                fairyColors: ['#FFFDF5', '#FFE599', '#FFD166', '#FF9F1C'],
+                spiritHue: 42,
+                spiritAccentHue: 28,
+                auroraHue1: 165,
+                auroraHue2: 45,
+                ribbonColor: 'rgba(255, 220, 130, 0.22)',
+                ribbonEdge: 'rgba(255, 248, 210, 0.92)',
+                starColor: '#FFF3B0',
+                treeGlow: 'rgba(255, 195, 85, 0.34)',
+                auraInner: 'rgba(255, 215, 120, 0.26)',
+                auraOuter: 'rgba(255, 150, 50, 0)'
+            },
+            {
+                name: '幻境冰蓝',
+                fairyColors: ['#FFFFFF', '#E0FBFC', '#90E0EF', '#48CAE4'],
+                spiritHue: 196,
+                spiritAccentHue: 218,
+                auroraHue1: 195,
+                auroraHue2: 245,
+                ribbonColor: 'rgba(144, 224, 239, 0.24)',
+                ribbonEdge: 'rgba(235, 252, 255, 0.95)',
+                starColor: '#E0FBFC',
+                treeGlow: 'rgba(110, 215, 255, 0.36)',
+                auraInner: 'rgba(130, 225, 255, 0.28)',
+                auraOuter: 'rgba(60, 140, 255, 0)'
+            },
+            {
+                name: '极光翡翠',
+                fairyColors: ['#F0FFF4', '#B7E4C7', '#74C69D', '#52B788'],
+                spiritHue: 158,
+                spiritAccentHue: 185,
+                auroraHue1: 150,
+                auroraHue2: 185,
+                ribbonColor: 'rgba(149, 213, 178, 0.24)',
+                ribbonEdge: 'rgba(230, 255, 242, 0.92)',
+                starColor: '#D8F3DC',
+                treeGlow: 'rgba(95, 225, 175, 0.34)',
+                auraInner: 'rgba(115, 235, 185, 0.26)',
+                auraOuter: 'rgba(40, 180, 140, 0)'
+            },
+            {
+                name: '紫罗星云',
+                fairyColors: ['#FFF0F5', '#FFC8DD', '#E0AAFF', '#BDE0FE'],
+                spiritHue: 285,
+                spiritAccentHue: 325,
+                auroraHue1: 280,
+                auroraHue2: 330,
+                ribbonColor: 'rgba(224, 170, 255, 0.24)',
+                ribbonEdge: 'rgba(255, 235, 252, 0.94)',
+                starColor: '#FFE5EC',
+                treeGlow: 'rgba(205, 135, 255, 0.36)',
+                auraInner: 'rgba(215, 150, 255, 0.28)',
+                auraOuter: 'rgba(160, 80, 240, 0)'
+            }
+        ];
+
+        // 连续点击树顶八芒星 3 次解锁的隐藏浪漫主题
+        const SECRET_ROSE_GOLD_THEME = {
+            name: '香槟玫瑰金 👑',
+            fairyColors: ['#FFF5F7', '#FFD6E0', '#FFB3C6', '#FFE5B4'],
+            spiritHue: 342,
+            spiritAccentHue: 32,
+            auroraHue1: 335,
+            auroraHue2: 38,
+            ribbonColor: 'rgba(255, 185, 205, 0.26)',
+            ribbonEdge: 'rgba(255, 240, 245, 0.96)',
+            starColor: '#FFE5EC',
+            treeGlow: 'rgba(255, 155, 185, 0.38)',
+            auraInner: 'rgba(255, 180, 200, 0.30)',
+            auraOuter: 'rgba(255, 120, 160, 0)'
+        };
+
+        let availableThemes = [...BASE_THEMES];
+        let currentThemeIdx = 0;
+        let secretUnlocked = false;
+        let starTapCount = 0;
+        let lastStarTapTime = 0;
+
+        /**
+         * ============================================================================
+         * 3. 虚幻光影圣诞树、北极光、流星雨与场景核心渲染引擎
+         * ============================================================================
+         */
+        const canvas = document.getElementById('sceneCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        // 交互旋转、风力与树顶星星坐标记录
+        let rotationAngle = 0;
+        let angularVelocity = 0.005;
+        let windVelocity = 0; // 左右滑动产生的微风倾斜力
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let lastDragX = 0;
+        let dragMoved = false;
+        let topStarScreenPos = { x: width * 0.5, y: height * 0.2, radius: 34 };
+
+        // 场景实体数组
+        let stars = [];
+        let snowflakes = [];
+        let treeElements = [];
+        let ribbonStrips = [];
+        let floatingWisps = [];
+        let fireworks = [];
+        let fireworkParticles = [];
+        let wishLanterns = [];
+        let shootingStars = [];
+        let skyFlashAlpha = 0;
+        let skyFlashHue = 45;
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            initStars();
+            initSnowflakes();
+            buildEtherealChristmasTree();
+        }
+
+        function initStars() {
+            stars = [];
+            const count = Math.floor((width * height) / 6800);
+            for (let i = 0; i < count; i++) {
+                stars.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height * 0.82,
+                    radius: Math.random() * 1.6 + 0.3,
+                    phase: Math.random() * Math.PI * 2,
+                    speed: 0.015 + Math.random() * 0.03
+                });
+            }
+        }
+
+        function initSnowflakes() {
+            snowflakes = [];
+            const count = width < 640 ? 90 : 150;
+            for (let i = 0; i < count; i++) {
+                const depth = Math.random();
+                snowflakes.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    radius: 0.9 + depth * 2.4,
+                    speedY: 0.45 + depth * 1.15,
+                    driftAmp: 0.25 + depth * 0.85,
+                    driftPhase: Math.random() * Math.PI * 2,
+                    opacity: 0.28 + depth * 0.62,
+                    depth
+                });
+            }
+        }
+
+        function buildEtherealChristmasTree() {
+            treeElements = [];
+            ribbonStrips = [];
+            floatingWisps = [];
+
+            const isMobile = width < 640;
+            const treeHeight = Math.min(height * (isMobile ? 0.56 : 0.64), isMobile ? 430 : 560);
+            const maxRadius = Math.min(width * (isMobile ? 0.36 : 0.23), treeHeight * 0.45);
+            const tierCount = 7;
+
+            const getEtherealRadius = (t) => {
+                const wave = Math.sin(t * Math.PI * tierCount) * 0.065 * Math.pow(t, 0.65);
+                const cone = Math.pow(t, 0.88) * 0.94;
+                return maxRadius * Math.max(0.015, cone + wave);
+            };
+
+            // 1. 虚幻光束树芯
+            const coreBeamCount = isMobile ? 65 : 95;
+            for (let i = 0; i < coreBeamCount; i++) {
+                const t = Math.random();
+                const angle = Math.random() * Math.PI * 2;
+                const r = maxRadius * 0.14 * Math.pow(t, 0.6) * Math.random();
+                treeElements.push({
+                    type: 'coreDust',
+                    y: -treeHeight * 0.48 + t * treeHeight * 1.04,
+                    t,
+                    radius: r,
+                    angle,
+                    phase: Math.random() * Math.PI * 2,
+                    speed: 1.5 + Math.random() * 2.5,
+                    size: (isMobile ? 1.8 : 2.3) * (0.6 + Math.random() * 0.9)
+                });
+            }
+
+            // 2. 虚幻星尘粒子树冠
+            const stardustCount = isMobile ? 620 : 960;
+            for (let i = 0; i < stardustCount; i++) {
+                const t = Math.pow(Math.random(), 0.82);
+                const surfaceR = getEtherealRadius(t);
+                const shellFactor = Math.random() < 0.82
+                    ? (0.86 + Math.random() * 0.16)
+                    : (0.25 + Math.random() * 0.62);
+                const r = surfaceR * shellFactor;
+                const angle = Math.random() * Math.PI * 2;
+
+                treeElements.push({
+                    type: 'stardust',
+                    y: -treeHeight * 0.5 + t * treeHeight,
+                    radius: r,
+                    angle,
+                    t,
+                    shellFactor,
+                    phase: Math.random() * Math.PI * 2,
+                    speed: 1.4 + Math.random() * 2.6,
+                    size: (isMobile ? 1.6 : 2.1) * (0.65 + Math.random() * 0.95)
+                });
+            }
+
+            // 3. 三重螺旋全息流光丝带
+            const ribbonConfigs = [
+                { turns: 4.2, phase: 0, widthScale: 1.15, radiusScale: 1.01 },
+                { turns: 4.2, phase: Math.PI * 0.66, widthScale: 0.75, radiusScale: 0.98 },
+                { turns: 4.2, phase: Math.PI * 1.33, widthScale: 0.75, radiusScale: 0.98 }
+            ];
+            const ribbonSteps = isMobile ? 160 : 220;
+
+            ribbonConfigs.forEach((cfg) => {
+                const strip = [];
+                for (let i = 0; i <= ribbonSteps; i++) {
+                    const t = 0.02 + (i / ribbonSteps) * 0.96;
+                    const r = getEtherealRadius(t) * cfg.radiusScale;
+                    const angle = t * Math.PI * 2 * cfg.turns + cfg.phase;
+                    const y = -treeHeight * 0.5 + t * treeHeight;
+                    strip.push({ t, y, radius: r, angle, widthScale: cfg.widthScale });
+                }
+                ribbonStrips.push(strip);
+            });
+
+            // 4. 梦幻散景光斑（Bokeh Orbs）
+            const bokehCount = isMobile ? 95 : 145;
+            for (let i = 0; i < bokehCount; i++) {
+                const t = 0.06 + Math.pow(Math.random(), 0.9) * 0.91;
+                const r = getEtherealRadius(t) * (0.85 + Math.random() * 0.22);
+                const angle = i * 2.39996 + (Math.random() - 0.5) * 0.3;
+                treeElements.push({
+                    type: 'bokehOrb',
+                    y: -treeHeight * 0.5 + t * treeHeight,
+                    t,
+                    radius: r,
+                    angle,
+                    colorIdx: i % 4,
+                    twinklePhase: Math.random() * Math.PI * 2,
+                    twinkleSpeed: 1.8 + Math.random() * 2.4,
+                    size: (isMobile ? 4.2 : 5.6) * (0.7 + Math.random() * 0.75)
+                });
+            }
+
+            // 5. 围绕树身盘旋上升的虚幻萤火光灵
+            const wispCount = isMobile ? 28 : 42;
+            for (let i = 0; i < wispCount; i++) {
+                floatingWisps.push({
+                    t: Math.random(),
+                    angle: Math.random() * Math.PI * 2,
+                    radialOffset: 1.06 + Math.random() * 0.32,
+                    riseSpeed: 0.0012 + Math.random() * 0.0016,
+                    orbitSpeed: 0.008 + Math.random() * 0.012,
+                    phase: Math.random() * Math.PI * 2,
+                    size: (isMobile ? 2.0 : 2.6) * (0.7 + Math.random() * 0.8)
+                });
+            }
+
+            buildEtherealChristmasTree.meta = {
+                treeHeight,
+                maxRadius,
+                getEtherealRadius
+            };
+        }
+
+        /**
+         * ============================================================================
+         * 4. 流星雨、多样化物理烟花（含心形烟花）与大尺寸慢升许愿天灯
+         * ============================================================================
+         */
+        class ShootingStar {
+            constructor() {
+                const fromLeft = Math.random() > 0.35;
+                this.x = fromLeft ? Math.random() * width * 0.45 : width * (0.55 + Math.random() * 0.4);
+                this.y = height * (0.04 + Math.random() * 0.16);
+                const angle = fromLeft ? (0.32 + Math.random() * 0.22) : (Math.PI - 0.32 - Math.random() * 0.22);
+                const speed = 5.2 + Math.random() * 2.4;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.length = 95 + Math.random() * 55;
+                this.life = 1.0;
+                this.decay = 0.0085 + Math.random() * 0.004;
+                this.caught = false;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+            }
+
+            draw() {
+                if (this.life <= 0) return;
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                const norm = Math.hypot(this.vx, this.vy);
+                const tailX = this.x - (this.vx / norm) * this.length;
+                const tailY = this.y - (this.vy / norm) * this.length;
+
+                const grad = ctx.createLinearGradient(this.x, this.y, tailX, tailY);
+                grad.addColorStop(0, `rgba(255, 252, 225, ${this.life})`);
+                grad.addColorStop(0.35, `rgba(180, 230, 255, ${this.life * 0.55})`);
+                grad.addColorStop(1, 'rgba(120, 180, 255, 0)');
+
+                ctx.strokeStyle = grad;
+                ctx.lineWidth = 2.4;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(tailX, tailY);
+                ctx.stroke();
+
+                // 流星头部亮星核
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.life})`;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 2.8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class FireworkRocket {
+            constructor(startX, targetX, targetY, forceShape = null, customHue = null) {
+                this.x = startX;
+                this.y = height;
+                this.targetX = targetX;
+                this.targetY = targetY;
+                this.forceShape = forceShape; // 'heart' | 'ring' | null
+
+                const dx = targetX - startX;
+                const dy = targetY - height;
+                const distance = Math.hypot(dx, dy);
+                const speed = Math.max(9.5, distance * 0.022);
+                const angle = Math.atan2(dy, dx);
+
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.hue = customHue !== null ? customHue : Math.floor(Math.random() * 360);
+                this.trail = [];
+                this.exploded = false;
+            }
+
+            update() {
+                this.trail.push({ x: this.x, y: this.y });
+                if (this.trail.length > 8) this.trail.shift();
+
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.06;
+
+                const distToTarget = Math.hypot(this.targetX - this.x, this.targetY - this.y);
+                if (distToTarget < 18 || this.vy >= -0.8) {
+                    this.exploded = true;
+                    explodeFirework(this.x, this.y, this.hue, this.forceShape);
+                }
+            }
+
+            draw() {
+                ctx.save();
+                for (let i = 0; i < this.trail.length; i++) {
+                    const pt = this.trail[i];
+                    const ratio = (i + 1) / this.trail.length;
+                    ctx.fillStyle = `hsla(${this.hue}, 100%, 75%, ${ratio * 0.75})`;
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, ratio * 2.4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                ctx.restore();
+            }
+        }
+
+        function explodeFirework(x, y, baseHue, forceShape = null) {
+            soundEngine.playFireworkPop(0.85 + Math.random() * 0.4);
+
+            skyFlashAlpha = 0.16;
+            skyFlashHue = baseHue;
+
+            const isMobile = width < 640;
+            const shape = forceShape || (Math.random() > 0.85 ? 'heart' : (Math.random() > 0.65 ? 'ring' : 'burst'));
+
+            if (shape === 'heart') {
+                // 浪漫心形烟花参数方程
+                const heartCount = isMobile ? 76 : 110;
+                const scale = isMobile ? 0.24 : 0.31;
+                const heartHue = forceShape === 'heart' ? 342 : baseHue;
+
+                for (let i = 0; i < heartCount; i++) {
+                    const t = (Math.PI * 2 * i) / heartCount;
+                    const hx = 16 * Math.pow(Math.sin(t), 3);
+                    const hy = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+                    const jitter = 0.92 + Math.random() * 0.16;
+
+                    fireworkParticles.push({
+                        x,
+                        y,
+                        vx: hx * scale * jitter,
+                        vy: hy * scale * jitter,
+                        hue: (heartHue + (Math.random() - 0.5) * 24 + 360) % 360,
+                        lightness: 68 + Math.random() * 20,
+                        alpha: 1,
+                        decay: 0.0048 + Math.random() * 0.0038,
+                        gravity: 0.022,
+                        drag: 0.974,
+                        sparkle: true,
+                        history: []
+                    });
+                }
+                return;
+            }
+
+            const count = isMobile ? 68 : 108;
+            for (let i = 0; i < count; i++) {
+                const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.15;
+                let speed = (Math.random() * 3.8 + 1.4) * (isMobile ? 0.82 : 1.05);
+
+                if (shape === 'ring') {
+                    speed = (i % 2 === 0 ? 4.3 : 2.2) * (isMobile ? 0.82 : 1);
+                }
+
+                const hue = (baseHue + (Math.random() - 0.5) * 42 + 360) % 360;
+                fireworkParticles.push({
+                    x,
+                    y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    hue,
+                    lightness: 64 + Math.random() * 24,
+                    alpha: 1,
+                    decay: 0.0052 + Math.random() * 0.0048,
+                    gravity: 0.032,
+                    drag: 0.976,
+                    sparkle: Math.random() > 0.3,
+                    history: []
+                });
+            }
+        }
+
+        function launchFireworkTo(targetX, targetY, forceShape = null, customHue = null) {
+            const startX = width * 0.5 + (Math.random() - 0.5) * width * 0.45;
+            fireworks.push(new FireworkRocket(startX, targetX, targetY, forceShape, customHue));
+        }
+
+        // 15秒一键烟花盛典控制器
+        let galaActive = false;
+        let galaEndTime = 0;
+        let lastGalaVolleyTime = 0;
+
+        function startGalaShow(durationMs = 15000) {
+            galaActive = true;
+            galaEndTime = performance.now() + durationMs;
+            lastGalaVolleyTime = 0;
+
+            const btn = document.getElementById('galaShowBtn');
+            const label = document.getElementById('galaBtnLabel');
+            const banner = document.getElementById('galaBanner');
+
+            btn.classList.add('active-gala');
+            label.textContent = '盛典中...';
+            banner.classList.remove('opacity-0');
+            banner.classList.add('opacity-100');
+
+            // 立即发射首批礼花
+            launchFireworkTo(width * 0.26, height * 0.22, 'heart', 345);
+            launchFireworkTo(width * 0.74, height * 0.22, 'heart', 42);
+            launchFireworkTo(width * 0.50, height * 0.16, 'ring', 195);
+        }
+
+        function stopGalaShow() {
+            galaActive = false;
+            const btn = document.getElementById('galaShowBtn');
+            const label = document.getElementById('galaBtnLabel');
+            const banner = document.getElementById('galaBanner');
+
+            btn.classList.remove('active-gala');
+            label.textContent = '一键盛典';
+            banner.classList.remove('opacity-100');
+            banner.classList.add('opacity-0');
+        }
+
+        // 许愿天灯类（大尺寸 + 缓慢上升）
+        class WishLantern {
+            constructor(text) {
+                this.text = text;
+                const isMobile = width < 640;
+                this.x = width * 0.5 + (Math.random() - 0.5) * (width * 0.36);
+                this.y = height * 0.80;
+                this.vy = -(0.22 + Math.random() * 0.12);
+                this.swayPhase = Math.random() * Math.PI * 2;
+                this.scale = isMobile ? 1.28 : 1.52;
+                this.alpha = 0;
+            }
+
+            update() {
+                this.y += this.vy;
+                this.swayPhase += 0.015;
+                this.x += Math.sin(this.swayPhase) * 0.32 + windVelocity * 0.12;
+                if (this.alpha < 1 && this.y > height * 0.14) {
+                    this.alpha = Math.min(1, this.alpha + 0.016);
+                }
+                if (this.y < height * 0.12) {
+                    this.alpha -= 0.0045;
+                }
+            }
+
+            draw() {
+                if (this.alpha <= 0) return;
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.translate(this.x, this.y);
+                ctx.scale(this.scale, this.scale);
+
+                const glow = ctx.createRadialGradient(0, 2, 3, 0, 2, 66);
+                glow.addColorStop(0, 'rgba(255, 224, 135, 0.65)');
+                glow.addColorStop(0.45, 'rgba(255, 145, 55, 0.26)');
+                glow.addColorStop(0.78, 'rgba(255, 105, 35, 0.08)');
+                glow.addColorStop(1, 'rgba(255, 100, 30, 0)');
+                ctx.fillStyle = glow;
+                ctx.beginPath();
+                ctx.arc(0, 2, 66, 0, Math.PI * 2);
+                ctx.fill();
+
+                const w = 34;
+                const h = 42;
+                const bodyGrad = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+                bodyGrad.addColorStop(0, '#FF8533');
+                bodyGrad.addColorStop(0.48, '#FFC44D');
+                bodyGrad.addColorStop(1, '#FFF6C4');
+
+                ctx.fillStyle = bodyGrad;
+                ctx.beginPath();
+                ctx.moveTo(-w * 0.36, -h / 2);
+                ctx.quadraticCurveTo(0, -h * 0.58, w * 0.36, -h / 2);
+                ctx.bezierCurveTo(w * 0.62, -h * 0.15, w * 0.52, h * 0.25, w * 0.32, h / 2);
+                ctx.lineTo(-w * 0.32, h / 2);
+                ctx.bezierCurveTo(-w * 0.52, h * 0.25, -w * 0.62, -h * 0.15, -w * 0.36, -h / 2);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.strokeStyle = 'rgba(180, 75, 15, 0.28)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, -h * 0.52);
+                ctx.lineTo(0, h * 0.5);
+                ctx.moveTo(-w * 0.24, -h * 0.48);
+                ctx.quadraticCurveTo(-w * 0.32, 0, -w * 0.16, h * 0.5);
+                ctx.moveTo(w * 0.24, -h * 0.48);
+                ctx.quadraticCurveTo(w * 0.32, 0, w * 0.16, h * 0.5);
+                ctx.stroke();
+
+                ctx.fillStyle = '#8C3B0A';
+                ctx.fillRect(-w * 0.22, h / 2 - 1, w * 0.44, 3);
+                ctx.fillStyle = '#FFFDF0';
+                ctx.beginPath();
+                ctx.arc(0, h * 0.26, 3.2, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (this.text) {
+                    ctx.font = '700 13px "Noto Serif SC", serif';
+                    ctx.textAlign = 'center';
+                    const textWidth = ctx.measureText(this.text).width + 16;
+                    const labelY = -h / 2 - 15;
+
+                    ctx.fillStyle = 'rgba(12, 19, 44, 0.58)';
+                    ctx.beginPath();
+                    ctx.roundRect(-textWidth / 2, labelY - 12, textWidth, 18, 9);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#FFF3C4';
+                    ctx.shadowColor = 'rgba(255, 165, 50, 0.6)';
+                    ctx.shadowBlur = 6;
+                    ctx.fillText(this.text, 0, labelY + 1);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        /**
+         * ============================================================================
+         * 5. 主渲染循环（夜空、流动极光、流星雨、虚幻圣诞树、烟花与风吹雪花）
+         * ============================================================================
+         */
+        let lastAutoFireworkTime = 0;
+        let lastShootingStarTime = 0;
+
+        function render(timestamp) {
+            requestAnimationFrame(render);
+
+            const theme = availableThemes[currentThemeIdx];
+            const timeSec = timestamp * 0.001;
+
+            // 1. 绘制深邃冬夜渐变天空
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+            skyGrad.addColorStop(0, '#030613');
+            skyGrad.addColorStop(0.52, '#091330');
+            skyGrad.addColorStop(0.86, '#102046');
+            skyGrad.addColorStop(1, '#162952');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            // 2. 绘制夜空上方流动的半透明北极光幕布
+            drawAuroraCurtains(timeSec, theme);
+
+            // 烟花绽放时的夜空瞬时辉光
+            if (skyFlashAlpha > 0.002) {
+                ctx.save();
+                ctx.globalAlpha = skyFlashAlpha;
+                ctx.fillStyle = `hsl(${skyFlashHue}, 90%, 65%)`;
+                ctx.fillRect(0, 0, width, height);
+                ctx.restore();
+                skyFlashAlpha *= 0.91;
+            }
+
+            // 3. 绘制闪烁星辰
+            for (let i = 0; i < stars.length; i++) {
+                const s = stars[i];
+                s.phase += s.speed;
+                const alpha = 0.25 + (Math.sin(s.phase) + 1) * 0.37;
+                ctx.fillStyle = `rgba(235, 245, 255, ${alpha.toFixed(2)})`;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 4. 偶发流星雨生成与更新（每约 9~13 秒划过一颗）
+            if (timestamp - lastShootingStarTime > 9500) {
+                lastShootingStarTime = timestamp + Math.random() * 3500;
+                shootingStars.push(new ShootingStar());
+            }
+            for (let i = shootingStars.length - 1; i >= 0; i--) {
+                shootingStars[i].update();
+                shootingStars[i].draw();
+                if (shootingStars[i].life <= 0) {
+                    shootingStars.splice(i, 1);
+                }
+            }
+
+            // 5. 自动烟花 & 15秒一键盛典连发调度
+            if (galaActive) {
+                const remainSec = Math.max(0, Math.ceil((galaEndTime - timestamp) / 1000));
+                document.getElementById('galaBannerText').textContent = `圣诞烟花盛典进行中 · ${remainSec}s`;
+
+                if (timestamp >= galaEndTime) {
+                    stopGalaShow();
+                } else if (timestamp - lastGalaVolleyTime > 520) {
+                    lastGalaVolleyTime = timestamp;
+                    const tx = width * (0.14 + Math.random() * 0.72);
+                    const ty = height * (0.12 + Math.random() * 0.36);
+                    const special = Math.random() > 0.72 ? 'heart' : null;
+                    launchFireworkTo(tx, ty, special);
+                }
+            } else if (timestamp - lastAutoFireworkTime > 2300) {
+                lastAutoFireworkTime = timestamp;
+                const tx = width * (0.15 + Math.random() * 0.7);
+                const ty = height * (0.12 + Math.random() * 0.34);
+                launchFireworkTo(tx, ty);
+            }
+
+            // 6. 更新并绘制烟花
+            for (let i = fireworks.length - 1; i >= 0; i--) {
+                fireworks[i].update();
+                fireworks[i].draw();
+                if (fireworks[i].exploded) {
+                    fireworks.splice(i, 1);
+                }
+            }
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            for (let i = fireworkParticles.length - 1; i >= 0; i--) {
+                const p = fireworkParticles[i];
+                p.history.push({ x: p.x, y: p.y });
+                if (p.history.length > 9) p.history.shift();
+
+                p.vx *= p.drag;
+                p.vy *= p.drag;
+                p.vy += p.gravity;
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+
+                if (p.alpha <= 0.02) {
+                    fireworkParticles.splice(i, 1);
+                    continue;
+                }
+
+                if (p.history.length > 1) {
+                    ctx.beginPath();
+                    ctx.moveTo(p.history[0].x, p.history[0].y);
+                    for (let j = 1; j < p.history.length; j++) {
+                        ctx.lineTo(p.history[j].x, p.history[j].y);
+                    }
+                    ctx.strokeStyle = `hsla(${p.hue}, 100%, ${p.lightness}%, ${p.alpha * 0.55})`;
+                    ctx.lineWidth = 1.6;
+                    ctx.stroke();
+                }
+
+                const flicker = p.sparkle && Math.random() > 0.7 ? 0.3 : 1;
+                ctx.fillStyle = `hsla(${p.hue}, 100%, ${p.lightness + 10}%, ${p.alpha * flicker})`;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 2.1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+
+            // 7. 绘制远景雪丘与近景雪地
+            const meta = buildEtherealChristmasTree.meta;
+            const centerX = width * 0.5;
+            const centerY = height * (width < 640 ? 0.48 : 0.49);
+            const groundY = centerY + meta.treeHeight * 0.54;
+
+            ctx.fillStyle = '#09132B';
+            ctx.beginPath();
+            ctx.moveTo(0, height);
+            ctx.lineTo(0, groundY - 14);
+            ctx.quadraticCurveTo(width * 0.24, groundY - 46, width * 0.52, groundY - 12);
+            ctx.quadraticCurveTo(width * 0.80, groundY + 14, width, groundY - 26);
+            ctx.lineTo(width, height);
+            ctx.closePath();
+            ctx.fill();
+
+            const snowGroundGrad = ctx.createLinearGradient(0, groundY - 20, 0, height);
+            snowGroundGrad.addColorStop(0, '#0E1D3D');
+            snowGroundGrad.addColorStop(0.4, '#142750');
+            snowGroundGrad.addColorStop(1, '#1B3366');
+            ctx.fillStyle = snowGroundGrad;
+            ctx.beginPath();
+            ctx.ellipse(centerX, height + 40, width * 0.82, Math.max(95, height - groundY + 58), 0, Math.PI, Math.PI * 2);
+            ctx.fill();
+
+            // 树体背后的虚幻空灵光雾
+            const auraPulse = 1 + Math.sin(timeSec * 1.6) * 0.06;
+            const treeBackGlow = ctx.createRadialGradient(
+                centerX, centerY, 8,
+                centerX, centerY, meta.treeHeight * 0.66 * auraPulse
+            );
+            treeBackGlow.addColorStop(0, theme.auraInner);
+            treeBackGlow.addColorStop(0.55, theme.treeGlow);
+            treeBackGlow.addColorStop(1, theme.auraOuter);
+            ctx.fillStyle = treeBackGlow;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, meta.treeHeight * 0.66 * auraPulse, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 8. 更新旋转物理惯性与微风摇曳
+            if (!isDragging) {
+                rotationAngle += angularVelocity;
+                angularVelocity += (0.005 - angularVelocity) * 0.03;
+            }
+            windVelocity *= 0.96; // 微风自然平息
+
+            const fov = 740;
+
+            drawEtherealBaseRings(centerX, groundY, meta, theme, timeSec);
+            drawEtherealVeil(centerX, centerY, meta, theme);
+
+            // 计算所有 3D 星尘与光斑粒子（受微风轻微吹拂树梢倾斜）
+            const projected = new Array(treeElements.length);
+            for (let i = 0; i < treeElements.length; i++) {
+                const p = treeElements[i];
+                const theta = p.angle + rotationAngle;
+                const swayX = windVelocity * Math.pow(1 - (p.t || 0.5), 1.5) * 14;
+                const x3d = Math.cos(theta) * p.radius + swayX;
+                const z3d = Math.sin(theta) * p.radius;
+                const scale = fov / (fov + z3d);
+                projected[i] = {
+                    p,
+                    x2d: centerX + x3d * scale,
+                    y2d: centerY + p.y * scale,
+                    z3d,
+                    scale
+                };
+            }
+
+            projected.sort((a, b) => b.z3d - a.z3d);
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+
+            drawEtherealRibbons(centerX, centerY, fov, theme, timeSec, true);
+
+            for (let i = 0; i < projected.length; i++) {
+                const { p, x2d, y2d, z3d, scale } = projected[i];
+                const depthFade = z3d > 0
+                    ? Math.max(0.22, 0.65 - (z3d / meta.maxRadius) * 0.42)
+                    : Math.min(1, 0.78 + (-z3d / meta.maxRadius) * 0.25);
+
+                if (p.type === 'coreDust') {
+                    const pulse = 0.45 + 0.55 * Math.sin(timeSec * p.speed + p.phase);
+                    const r = p.size * scale;
+                    ctx.fillStyle = `hsla(${theme.spiritHue}, 95%, 80%, ${0.32 * pulse * depthFade})`;
+                    ctx.beginPath();
+                    ctx.arc(x2d, y2d, r * 1.8, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (p.type === 'stardust') {
+                    const twinkle = 0.45 + 0.55 * Math.sin(timeSec * p.speed + p.phase);
+                    const r = p.size * scale * (0.85 + twinkle * 0.3);
+                    const hue = p.shellFactor > 0.9 ? theme.spiritHue : theme.spiritAccentHue;
+                    const lightness = p.shellFactor > 0.92 ? 84 : 68;
+                    const alpha = (p.shellFactor > 0.85 ? 0.68 : 0.35) * twinkle * depthFade;
+
+                    ctx.fillStyle = `hsla(${hue}, 95%, ${lightness}%, ${alpha * 0.38})`;
+                    ctx.beginPath();
+                    ctx.arc(x2d, y2d, r * 2.2, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = `hsla(${hue}, 100%, 92%, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(x2d, y2d, r * 0.72, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (p.type === 'bokehOrb') {
+                    const color = theme.fairyColors[p.colorIdx % theme.fairyColors.length];
+                    const pulse = 0.5 + 0.5 * Math.sin(timeSec * p.twinkleSpeed + p.twinklePhase);
+                    const radius = p.size * scale * (0.85 + pulse * 0.35);
+
+                    const bokehGrad = ctx.createRadialGradient(x2d, y2d, 0, x2d, y2d, radius * 2.8);
+                    bokehGrad.addColorStop(0, '#FFFFFF');
+                    bokehGrad.addColorStop(0.25, color);
+                    bokehGrad.addColorStop(0.65, color);
+                    bokehGrad.addColorStop(1, 'rgba(0,0,0,0)');
+
+                    ctx.globalAlpha = 0.55 * pulse * depthFade;
+                    ctx.fillStyle = bokehGrad;
+                    ctx.beginPath();
+                    ctx.arc(x2d, y2d, radius * 2.8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
+            }
+
+            drawEtherealRibbons(centerX, centerY, fov, theme, timeSec, false);
+            drawFloatingWisps(centerX, centerY, fov, meta, theme, timeSec);
+
+            ctx.restore();
+
+            // 9. 绘制树顶虚幻八芒伯利恒之星（并记录其屏幕坐标供点击彩蛋检测）
+            const starX = centerX + windVelocity * 14;
+            const starY = centerY - meta.treeHeight * 0.5 - 12;
+            topStarScreenPos = { x: starX, y: starY, radius: width < 640 ? 34 : 42 };
+            drawTopStar(starX, starY, timeSec, theme.starColor);
+
+            // 10. 更新并绘制许愿天灯
+            for (let i = wishLanterns.length - 1; i >= 0; i--) {
+                wishLanterns[i].update();
+                wishLanterns[i].draw();
+                if (wishLanterns[i].alpha <= 0 && wishLanterns[i].y < height * 0.2) {
+                    wishLanterns.splice(i, 1);
+                }
+            }
+
+            // 11. 绘制受微风吹拂的飘落雪花
+            ctx.save();
+            for (let i = 0; i < snowflakes.length; i++) {
+                const sf = snowflakes[i];
+                sf.y += sf.speedY;
+                sf.driftPhase += 0.018;
+                sf.x += Math.sin(sf.driftPhase) * sf.driftAmp + windVelocity * (0.4 + sf.depth * 1.4);
+
+                if (sf.y > height + 6) {
+                    sf.y = -6;
+                    sf.x = Math.random() * width;
+                }
+                if (sf.x > width + 6) sf.x = -6;
+                else if (sf.x < -6) sf.x = width + 6;
+
+                ctx.fillStyle = `rgba(240, 248, 255, ${sf.opacity})`;
+                ctx.beginPath();
+                ctx.arc(sf.x, sf.y, sf.radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+            ctx.globalAlpha = 1;
+        }
+
+        // 绘制夜空上方流动的半透明北极光幕布
+        function drawAuroraCurtains(timeSec, theme) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+
+            for (let layer = 0; layer < 2; layer++) {
+                const baseY = height * (0.14 + layer * 0.08);
+                const amp = height * 0.045;
+                const hue = layer === 0 ? theme.auroraHue1 : theme.auroraHue2;
+
+                ctx.beginPath();
+                ctx.moveTo(0, baseY);
+                const segments = 18;
+                for (let i = 0; i <= segments; i++) {
+                    const x = (width / segments) * i;
+                    const wave = Math.sin(i * 0.45 + timeSec * (0.42 + layer * 0.15) + layer) * amp
+                               + Math.cos(i * 0.25 - timeSec * 0.28) * (amp * 0.5);
+                    ctx.lineTo(x, baseY + wave);
+                }
+                ctx.lineTo(width, baseY + height * 0.18);
+                ctx.lineTo(0, baseY + height * 0.18);
+                ctx.closePath();
+
+                const auroraGrad = ctx.createLinearGradient(0, baseY - amp, 0, baseY + height * 0.18);
+                auroraGrad.addColorStop(0, `hsla(${hue}, 85%, 60%, 0)`);
+                auroraGrad.addColorStop(0.35, `hsla(${hue}, 90%, 62%, 0.075)`);
+                auroraGrad.addColorStop(0.75, `hsla(${(hue + 25) % 360}, 85%, 55%, 0.03)`);
+                auroraGrad.addColorStop(1, `hsla(${hue}, 85%, 50%, 0)`);
+
+                ctx.fillStyle = auroraGrad;
+                ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        function drawEtherealVeil(centerX, centerY, meta, theme) {
+            const steps = 40;
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.beginPath();
+            ctx.moveTo(centerX + windVelocity * 12, centerY - meta.treeHeight * 0.5);
+            for (let i = 1; i <= steps; i++) {
+                const t = i / steps;
+                const swayX = windVelocity * Math.pow(1 - t, 1.5) * 12;
+                const r = meta.getEtherealRadius(t) * 0.94;
+                const y = centerY - meta.treeHeight * 0.5 + t * meta.treeHeight;
+                ctx.lineTo(centerX + r + swayX, y);
+            }
+            for (let i = steps; i >= 1; i--) {
+                const t = i / steps;
+                const swayX = windVelocity * Math.pow(1 - t, 1.5) * 12;
+                const r = meta.getEtherealRadius(t) * 0.94;
+                const y = centerY - meta.treeHeight * 0.5 + t * meta.treeHeight;
+                ctx.lineTo(centerX - r + swayX, y);
+            }
+            ctx.closePath();
+
+            const veilGrad = ctx.createLinearGradient(
+                centerX, centerY - meta.treeHeight * 0.5,
+                centerX, centerY + meta.treeHeight * 0.5
+            );
+            veilGrad.addColorStop(0, `hsla(${theme.spiritHue}, 95%, 78%, 0.16)`);
+            veilGrad.addColorStop(0.55, `hsla(${theme.spiritHue}, 90%, 62%, 0.08)`);
+            veilGrad.addColorStop(1, `hsla(${theme.spiritAccentHue}, 85%, 55%, 0.02)`);
+            ctx.fillStyle = veilGrad;
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawEtherealRibbons(centerX, centerY, fov, theme, timeSec, drawBackHalf) {
+            for (let sIdx = 0; sIdx < ribbonStrips.length; sIdx++) {
+                const strip = ribbonStrips[sIdx];
+                for (let i = 0; i < strip.length - 1; i++) {
+                    const p1 = strip[i];
+                    const p2 = strip[i + 1];
+
+                    const th1 = p1.angle + rotationAngle;
+                    const th2 = p2.angle + rotationAngle;
+
+                    const z1 = Math.sin(th1) * p1.radius;
+                    const z2 = Math.sin(th2) * p2.radius;
+
+                    const isBack = (z1 + z2) * 0.5 > 0;
+                    if (isBack !== drawBackHalf) continue;
+
+                    const sc1 = fov / (fov + z1);
+                    const sc2 = fov / (fov + z2);
+
+                    const sway1 = windVelocity * Math.pow(1 - p1.t, 1.5) * 14;
+                    const sway2 = windVelocity * Math.pow(1 - p2.t, 1.5) * 14;
+
+                    const x1 = centerX + (Math.cos(th1) * p1.radius + sway1) * sc1;
+                    const y1 = centerY + p1.y * sc1;
+                    const x2 = centerX + (Math.cos(th2) * p2.radius + sway2) * sc2;
+                    const y2 = centerY + p2.y * sc2;
+
+                    const wavePulse = 0.55 + 0.45 * Math.sin(p1.t * 16 - timeSec * 3.6 + sIdx * 2.1);
+                    const ribbonW = (1.6 + p1.t * 3.4) * p1.widthScale * sc1;
+                    const alphaScale = drawBackHalf ? 0.24 : 0.85;
+
+                    ctx.strokeStyle = theme.ribbonColor;
+                    ctx.globalAlpha = alphaScale * wavePulse;
+                    ctx.lineWidth = ribbonW * 2.6;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+
+                    ctx.strokeStyle = theme.ribbonEdge;
+                    ctx.globalAlpha = alphaScale * wavePulse * 0.9;
+                    ctx.lineWidth = Math.max(0.8, ribbonW * 0.45);
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.stroke();
+                }
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function drawEtherealBaseRings(centerX, groundY, meta, theme, timeSec) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+
+            const floorGlow = ctx.createRadialGradient(centerX, groundY, 4, centerX, groundY, meta.maxRadius * 1.55);
+            floorGlow.addColorStop(0, theme.auraInner);
+            floorGlow.addColorStop(0.5, theme.treeGlow);
+            floorGlow.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = floorGlow;
+            ctx.beginPath();
+            ctx.ellipse(centerX, groundY, meta.maxRadius * 1.55, meta.maxRadius * 0.36, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            for (let rIdx = 0; rIdx < 3; rIdx++) {
+                const wave = ((timeSec * 0.45 + rIdx * 0.33) % 1);
+                const rx = meta.maxRadius * (0.45 + wave * 0.95);
+                const ry = rx * 0.24;
+                const alpha = (1 - wave) * 0.42;
+
+                ctx.strokeStyle = `hsla(${theme.spiritHue}, 95%, 78%, ${alpha})`;
+                ctx.lineWidth = 1.6 - wave * 0.8;
+                ctx.beginPath();
+                ctx.ellipse(centerX, groundY, rx, ry, 0, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function drawFloatingWisps(centerX, centerY, fov, meta, theme, timeSec) {
+            for (let i = 0; i < floatingWisps.length; i++) {
+                const w = floatingWisps[i];
+                w.t -= w.riseSpeed;
+                w.angle += w.orbitSpeed;
+                if (w.t < 0.02) {
+                    w.t = 0.98;
+                }
+
+                const theta = w.angle + rotationAngle * 0.6;
+                const r = meta.getEtherealRadius(w.t) * w.radialOffset;
+                const y = -meta.treeHeight * 0.5 + w.t * meta.treeHeight;
+
+                const x3d = Math.cos(theta) * r;
+                const z3d = Math.sin(theta) * r;
+                const scale = fov / (fov + z3d);
+
+                const x2d = centerX + x3d * scale;
+                const y2d = centerY + y * scale;
+
+                const fadeEdge = Math.sin(w.t * Math.PI);
+                const pulse = 0.5 + 0.5 * Math.sin(timeSec * 3.2 + w.phase);
+                const alpha = fadeEdge * pulse * (z3d > 0 ? 0.35 : 0.85);
+                const radius = w.size * scale;
+
+                ctx.fillStyle = `hsla(${theme.spiritHue}, 100%, 82%, ${alpha * 0.35})`;
+                ctx.beginPath();
+                ctx.arc(x2d, y2d, radius * 2.8, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                ctx.beginPath();
+                ctx.arc(x2d, y2d, radius * 0.75, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawTopStar(x, y, timeSec, starColor) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            const pulse = 1 + Math.sin(timeSec * 2.8) * 0.08;
+            const isMobile = width < 640;
+            const mainR = (isMobile ? 20 : 26) * pulse;
+            const diagR = mainR * 0.64;
+            const innerR = mainR * 0.26;
+
+            const halo = ctx.createRadialGradient(0, 0, 2, 0, 0, mainR * 3.1);
+            halo.addColorStop(0, 'rgba(255, 253, 225, 0.96)');
+            halo.addColorStop(0.3, 'rgba(255, 218, 115, 0.45)');
+            halo.addColorStop(0.65, 'rgba(255, 190, 75, 0.14)');
+            halo.addColorStop(1, 'rgba(255, 180, 60, 0)');
+            ctx.fillStyle = halo;
+            ctx.beginPath();
+            ctx.arc(0, 0, mainR * 3.1, 0, Math.PI * 2);
+            ctx.fill();
+
+            const flareGradH = ctx.createLinearGradient(-mainR * 2.4, 0, mainR * 2.4, 0);
+            flareGradH.addColorStop(0, 'rgba(255, 250, 220, 0)');
+            flareGradH.addColorStop(0.5, 'rgba(255, 252, 235, 0.85)');
+            flareGradH.addColorStop(1, 'rgba(255, 250, 220, 0)');
+            ctx.fillStyle = flareGradH;
+            ctx.fillRect(-mainR * 2.4, -1, mainR * 4.8, 2);
+
+            const flareGradV = ctx.createLinearGradient(0, -mainR * 2.4, 0, mainR * 2.4);
+            flareGradV.addColorStop(0, 'rgba(255, 250, 220, 0)');
+            flareGradV.addColorStop(0.5, 'rgba(255, 252, 235, 0.85)');
+            flareGradV.addColorStop(1, 'rgba(255, 250, 220, 0)');
+            ctx.fillStyle = flareGradV;
+            ctx.fillRect(-1, -mainR * 2.4, 2, mainR * 4.8);
+
+            ctx.fillStyle = starColor;
+            ctx.beginPath();
+            const points = 16;
+            for (let i = 0; i < points; i++) {
+                let r = innerR;
+                if (i % 4 === 0) r = mainR;
+                else if (i % 2 === 0) r = diagR;
+                const a = (i * Math.PI) / 8 - Math.PI / 2;
+                const px = Math.cos(a) * r;
+                const py = Math.sin(a) * r;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.arc(0, 0, innerR * 0.85, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        /**
+         * ============================================================================
+         * 6. 交互逻辑：流星捕捉彩蛋、树顶星星3连击彩蛋、滑动吹风与点击放烟花
+         * ============================================================================
+         */
+        function handlePointerDown(clientX, clientY) {
+            isDragging = true;
+            dragStartX = clientX;
+            dragStartY = clientY;
+            lastDragX = clientX;
+            dragMoved = false;
+        }
+
+        function handlePointerMove(clientX, clientY) {
+            if (!isDragging) return;
+            const dx = clientX - lastDragX;
+            if (Math.abs(clientX - dragStartX) > 6 || Math.abs(clientY - dragStartY) > 6) {
+                dragMoved = true;
+            }
+            rotationAngle += dx * 0.0085;
+            angularVelocity = dx * 0.006;
+            // 滑动掀起冬夜微风，带动雪花和树冠倾斜
+            windVelocity = Math.max(-2.6, Math.min(2.6, windVelocity + dx * 0.032));
+            lastDragX = clientX;
+        }
+
+        function handlePointerUp(clientX, clientY) {
+            if (!isDragging) return;
+            isDragging = false;
+            if (dragMoved) return;
+
+            // 检测 1：是否点中了夜空中划过的流星
+            for (let i = shootingStars.length - 1; i >= 0; i--) {
+                const st = shootingStars[i];
+                const distToStar = Math.hypot(clientX - st.x, clientY - st.y);
+                if (distToStar < 48 && !st.caught) {
+                    st.caught = true;
+                    shootingStars.splice(i, 1);
+                    soundEngine.playChimeSparkle();
+                    showToast('🌠 捕捉到流星！双子心形烟花为您绽放');
+                    launchFireworkTo(clientX - 45, clientY, 'heart', 342);
+                    launchFireworkTo(clientX + 45, clientY - 15, 'heart', 38);
+                    return;
+                }
+            }
+
+            // 检测 2：是否点中了树顶八芒星（连续点击 3 次解锁隐藏「香槟玫瑰金」主题）
+            const distToTopStar = Math.hypot(clientX - topStarScreenPos.x, clientY - topStarScreenPos.y);
+            if (distToTopStar <= topStarScreenPos.radius) {
+                const now = performance.now();
+                if (now - lastStarTapTime < 1500) {
+                    starTapCount++;
+                } else {
+                    starTapCount = 1;
+                }
+                lastStarTapTime = now;
+
+                // 星星受击星光爆发
+                explodeFirework(topStarScreenPos.x, topStarScreenPos.y, 45, 'ring');
+
+                if (starTapCount >= 3) {
+                    starTapCount = 0;
+                    if (!secretUnlocked) {
+                        secretUnlocked = true;
+                        availableThemes.push(SECRET_ROSE_GOLD_THEME);
+                    }
+                    currentThemeIdx = availableThemes.length - 1;
+                    document.getElementById('themeNameLabel').textContent = availableThemes[currentThemeIdx].name;
+                    soundEngine.playChimeSparkle();
+                    showToast('👑 彩蛋解锁！已切换至隐藏「香槟玫瑰金」主题');
+                    launchFireworkTo(width * 0.35, height * 0.22, 'heart', 342);
+                    launchFireworkTo(width * 0.65, height * 0.22, 'heart', 342);
+                } else {
+                    showToast(`⭐ 星光共鸣 (${starTapCount}/3)...`);
+                }
+                return;
+            }
+
+            // 默认：在指尖点击处精准燃放烟花
+            const targetY = Math.min(clientY, height * 0.68);
+            launchFireworkTo(clientX, targetY);
+        }
+
+        canvas.addEventListener('mousedown', (e) => handlePointerDown(e.clientX, e.clientY));
+        window.addEventListener('mousemove', (e) => handlePointerMove(e.clientX, e.clientY));
+        window.addEventListener('mouseup', (e) => handlePointerUp(e.clientX, e.clientY));
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length > 0) {
+                handlePointerDown(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: true });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) {
+                handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: true });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (e.changedTouches.length > 0) {
+                handlePointerUp(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+            }
+        });
+
+        /**
+         * ============================================================================
+         * 7. 圣诞倒计时、星愿瓶存储、专属祝福链接解析与 UI 交互
+         * ============================================================================
+         */
+        function updateChristmasCountdown() {
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            let target = new Date(currentYear, 11, 25, 0, 0, 0); // 12月25日
+
+            // 判断是否正是圣诞节当天
+            if (now.getMonth() === 11 && now.getDate() === 25) {
+                document.getElementById('countdownText').textContent = '🎄 今天就是圣诞节 · 愿你万事胜意！';
+                return;
+            }
+
+            if (now > target) {
+                target = new Date(currentYear + 1, 11, 25, 0, 0, 0);
+            }
+
+            const diff = target - now;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = String(Math.floor((diff / (1000 * 60 * 60)) % 24)).padStart(2, '0');
+            const mins = String(Math.floor((diff / (1000 * 60)) % 60)).padStart(2, '0');
+            const secs = String(Math.floor((diff / 1000) % 60)).padStart(2, '0');
+
+            document.getElementById('countdownText').textContent = `距圣诞节 ${days}天 ${hours}:${mins}:${secs}`;
+        }
+
+        // 星尘许愿瓶本地存储管理
+        const WISH_STORAGE_KEY = 'christmas_ethereal_wishes_v1';
+        let savedWishes = [];
+
+        function loadSavedWishes() {
+            try {
+                const raw = localStorage.getItem(WISH_STORAGE_KEY);
+                savedWishes = raw ? JSON.parse(raw) : [];
+            } catch (e) {
+                savedWishes = [];
+            }
+            updateWishBottleBadge();
+        }
+
+        function saveWishToBottle(text) {
+            const now = new Date();
+            const timeStr = `${now.getMonth() + 1}月${now.getDate()}日 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            savedWishes.unshift({ text, time: timeStr });
+            if (savedWishes.length > 30) savedWishes.pop();
+            try {
+                localStorage.setItem(WISH_STORAGE_KEY, JSON.stringify(savedWishes));
+            } catch (e) {}
+            updateWishBottleBadge();
+        }
+
+        function updateWishBottleBadge() {
+            document.getElementById('wishCountBadge').textContent = savedWishes.length;
+        }
+
+        function renderWishBottleList() {
+            const listEl = document.getElementById('wishHistoryList');
+            if (savedWishes.length === 0) {
+                listEl.innerHTML = `<div class="text-center text-xs text-blue-200/60 py-8">星愿瓶还是空的，快去放飞第一盏许愿天灯吧 🏮</div>`;
+                return;
+            }
+            listEl.innerHTML = savedWishes.map((item, idx) => `
+                <div class="p-3 rounded-2xl bg-white/8 border border-white/12 flex items-center justify-between gap-2">
+                    <div>
+                        <div class="text-sm text-amber-100 font-medium">🏮 ${escapeHtml(item.text)}</div>
+                        <div class="text-[11px] text-blue-200/60 mt-0.5">${item.time}</div>
+                    </div>
+                    <button type="button" data-wish-idx="${idx}" class="relaunch-single-wish text-xs px-2.5 py-1 rounded-full bg-amber-400/20 hover:bg-amber-400/35 text-amber-200 border border-amber-300/30 shrink-0 cursor-pointer">
+                        再放飞
+                    </button>
+                </div>
+            `).join('');
+
+            listEl.querySelectorAll('.relaunch-single-wish').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const idx = Number(btn.getAttribute('data-wish-idx'));
+                    const wish = savedWishes[idx];
+                    if (wish) {
+                        wishLanterns.push(new WishLantern(wish.text));
+                        closeBottleModal();
+                        showToast('🏮 心愿天灯再次升空！');
+                    }
+                });
+            });
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/[&<>"']/g, (m) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[m]));
+        }
+
+        // 解析 URL 专属祝福参数 (?to=...&msg=...)
+        function checkCustomGreetingFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const toName = params.get('to');
+            const msgText = params.get('msg');
+
+            if (toName || msgText) {
+                const banner = document.getElementById('greetingCardBanner');
+                const titleEl = document.getElementById('greetingToTitle');
+                const bodyEl = document.getElementById('greetingMsgBody');
+
+                const safeTo = toName ? toName.trim().slice(0, 16) : '特别的你';
+                const safeMsg = msgText ? msgText.trim().slice(0, 48) : '愿这个冬夜的烟花与星光，为你照亮新一年的所有美好！';
+
+                titleEl.textContent = `To: ${safeTo}`;
+                bodyEl.textContent = safeMsg;
+                banner.classList.remove('hidden');
+
+                // 自动放飞写有祝福语的天灯与心形烟花
+                setTimeout(() => {
+                    wishLanterns.push(new WishLantern(`送给${safeTo}：${safeMsg.slice(0, 16)}`));
+                    launchFireworkTo(width * 0.34, height * 0.24, 'heart', 342);
+                    launchFireworkTo(width * 0.66, height * 0.24, 'heart', 38);
+                }, 750);
+            }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toastMsg');
+            toast.firstElementChild.textContent = message;
+            toast.classList.remove('opacity-0');
+            toast.classList.add('opacity-100');
+            clearTimeout(showToast.timer);
+            showToast.timer = setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0');
+            }, 2400);
+        }
+
+        // 音频开关
+        document.getElementById('audioToggleBtn').addEventListener('click', () => {
+            const playing = soundEngine.toggle();
+            document.getElementById('audioIcon').textContent = playing ? '🎵' : '🔇';
+            document.getElementById('audioText').textContent = playing ? '音乐开启' : '开启音乐';
+            showToast(playing ? '🎄 圣诞八音盒与烟花音效已开启' : '🔇 已静音');
+        });
+
+        // 纯净观赏模式
+        let uiVisible = true;
+        document.getElementById('toggleUiBtn').addEventListener('click', () => {
+            uiVisible = !uiVisible;
+            const headerTitle = document.getElementById('headerTitle');
+            const controlDock = document.getElementById('controlDock');
+            const toggleUiText = document.getElementById('toggleUiText');
+
+            if (uiVisible) {
+                headerTitle.classList.remove('ui-hidden');
+                controlDock.classList.remove('ui-hidden');
+                toggleUiText.textContent = '纯净模式';
+            } else {
+                headerTitle.classList.add('ui-hidden');
+                controlDock.classList.add('ui-hidden');
+                toggleUiText.textContent = '显示面板';
+            }
+        });
+
+        // 15秒一键烟花盛典按钮
+        document.getElementById('galaShowBtn').addEventListener('click', () => {
+            if (galaActive) {
+                stopGalaShow();
+                showToast('🎆 已结束盛典连发');
+            } else {
+                startGalaShow(15000);
+                showToast('🎆 开启 15 秒圣诞烟花盛典！');
+            }
+        });
+
+        // 切换圣诞树灯光主题
+        document.getElementById('themeSwitchBtn').addEventListener('click', () => {
+            currentThemeIdx = (currentThemeIdx + 1) % availableThemes.length;
+            const theme = availableThemes[currentThemeIdx];
+            document.getElementById('themeNameLabel').textContent = theme.name;
+            showToast(`✨ 已切换至「${theme.name}」主题`);
+        });
+
+        // 许愿灯弹窗交互
+        const wishModal = document.getElementById('wishModal');
+        const wishInput = document.getElementById('wishInput');
+
+        document.getElementById('openWishBtn').addEventListener('click', () => {
+            wishModal.classList.remove('hidden');
+            wishModal.classList.add('flex');
+            setTimeout(() => wishInput.focus(), 80);
+        });
+
+        function closeWishModal() {
+            wishModal.classList.add('hidden');
+            wishModal.classList.remove('flex');
+        }
+
+        document.getElementById('cancelWishBtn').addEventListener('click', closeWishModal);
+        wishModal.addEventListener('click', (e) => {
+            if (e.target === wishModal) closeWishModal();
+        });
+
+        document.querySelectorAll('.quick-wish').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                wishInput.value = btn.textContent.trim();
+            });
+        });
+
+        function releaseWish() {
+            const text = wishInput.value.trim() || '圣诞快乐，平安喜乐 ✨';
+            wishLanterns.push(new WishLantern(text));
+            saveWishToBottle(text);
+            wishInput.value = '';
+            closeWishModal();
+            showToast('🏮 心愿天灯已升空，并存入星愿瓶！');
+            launchFireworkTo(width * 0.5, height * 0.24, 'heart', 38);
+        }
+
+        document.getElementById('sendWishBtn').addEventListener('click', releaseWish);
+        wishInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') releaseWish();
+        });
+
+        // 星尘许愿瓶弹窗交互
+        const bottleModal = document.getElementById('bottleModal');
+        function closeBottleModal() {
+            bottleModal.classList.add('hidden');
+            bottleModal.classList.remove('flex');
+        }
+        document.getElementById('openBottleBtn').addEventListener('click', () => {
+            renderWishBottleList();
+            bottleModal.classList.remove('hidden');
+            bottleModal.classList.add('flex');
+        });
+        document.getElementById('closeBottleBtn').addEventListener('click', closeBottleModal);
+        bottleModal.addEventListener('click', (e) => {
+            if (e.target === bottleModal) closeBottleModal();
+        });
+        document.getElementById('relaunchAllWishesBtn').addEventListener('click', () => {
+            if (savedWishes.length === 0) {
+                showToast('🫙 星愿瓶里还没有心愿哦');
+                return;
+            }
+            const batch = savedWishes.slice(0, 6);
+            batch.forEach((item, i) => {
+                setTimeout(() => {
+                    wishLanterns.push(new WishLantern(item.text));
+                }, i * 550);
+            });
+            closeBottleModal();
+            showToast(`🏮 正在重放 ${batch.length} 盏星愿天灯！`);
+        });
+
+        // 专属祝福链接生成器弹窗交互
+        const shareModal = document.getElementById('shareModal');
+        const shareToInput = document.getElementById('shareToInput');
+        const shareMsgInput = document.getElementById('shareMsgInput');
+        const generatedShareUrl = document.getElementById('generatedShareUrl');
+
+        function updateGeneratedShareUrl() {
+            const baseUrl = window.location.origin + window.location.pathname;
+            const url = new URL(baseUrl.startsWith('http') ? baseUrl : 'https://example.com/');
+            const toVal = shareToInput.value.trim();
+            const msgVal = shareMsgInput.value.trim();
+            if (toVal) url.searchParams.set('to', toVal);
+            if (msgVal) url.searchParams.set('msg', msgVal);
+
+            if (!baseUrl.startsWith('http')) {
+                const qs = url.search;
+                generatedShareUrl.value = `${window.location.href.split('?')[0]}${qs}`;
+            } else {
+                generatedShareUrl.value = url.toString();
+            }
+        }
+
+        document.getElementById('openShareBtn').addEventListener('click', () => {
+            updateGeneratedShareUrl();
+            shareModal.classList.remove('hidden');
+            shareModal.classList.add('flex');
+        });
+
+        function closeShareModal() {
+            shareModal.classList.add('hidden');
+            shareModal.classList.remove('flex');
+        }
+
+        document.getElementById('cancelShareBtn').addEventListener('click', closeShareModal);
+        shareModal.addEventListener('click', (e) => {
+            if (e.target === shareModal) closeShareModal();
+        });
+
+        shareToInput.addEventListener('input', updateGeneratedShareUrl);
+        shareMsgInput.addEventListener('input', updateGeneratedShareUrl);
+
+        document.getElementById('copyShareUrlBtn').addEventListener('click', () => {
+            updateGeneratedShareUrl();
+            generatedShareUrl.select();
+            generatedShareUrl.setSelectionRange(0, 99999);
+            try {
+                document.execCommand('copy');
+                showToast('📋 专属祝福链接已复制！快发给TA吧');
+                closeShareModal();
+            } catch (e) {
+                showToast('请长按或全选上方链接进行复制');
+            }
+        });
+
+        // 专属祝福卡片操作
+        document.getElementById('closeGreetingBannerBtn').addEventListener('click', () => {
+            document.getElementById('greetingCardBanner').classList.add('hidden');
+        });
+        document.getElementById('replayGreetingFireworkBtn').addEventListener('click', () => {
+            launchFireworkTo(width * 0.34, height * 0.24, 'heart', 342);
+            launchFireworkTo(width * 0.66, height * 0.24, 'heart', 38);
+        });
+
+        // 窗口尺寸变化监听与页面初始化
+        window.addEventListener('resize', resizeCanvas);
+        window.onload = function () {
+            resizeCanvas();
+            loadSavedWishes();
+            updateChristmasCountdown();
+            setInterval(updateChristmasCountdown, 1000);
+            checkCustomGreetingFromUrl();
+
+            // 开场礼花欢迎
+            setTimeout(() => {
+                launchFireworkTo(width * 0.32, height * 0.25);
+                launchFireworkTo(width * 0.68, height * 0.22);
+            }, 400);
+
+            requestAnimationFrame(render);
+        };
+    </script>
+</body>
+</html>
